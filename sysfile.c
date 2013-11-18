@@ -49,6 +49,13 @@ fdalloc(struct file *f)
   return -1;
 }
 
+//测试系统调用
+int 
+sys_test(void)
+{
+  return 0;
+}
+
 int
 sys_dup(void)
 {
