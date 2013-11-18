@@ -154,6 +154,7 @@ mkfs: mkfs.c fs.h
 # http://www.gnu.org/software/make/manual/html_node/Chained-Rules.html
 .PRECIOUS: %.o
 
+# 在这里加入命令的名字，下划线后边的内容要与相应的源文件同名，否则编译失败
 UPROGS=\
 	_cat\
 	_echo\
@@ -170,6 +171,8 @@ UPROGS=\
 	_usertests\
 	_wc\
 	_zombie\
+	_testhy\
+	_jlnTest\
 
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)
@@ -236,10 +239,11 @@ qemu-nox-gdb: fs.img xv6.img .gdbinit
 # rename it to rev0 or rev1 or so on and then
 # check in that version.
 
+# 新增的shell命令请在这里加入源文件
 EXTRA=\
 	mkfs.c ulib.c user.h cat.c echo.c forktest.c grep.c kill.c\
 	ln.c ls.c mkdir.c rm.c stressfs.c usertests.c wc.c zombie.c\
-	printf.c umalloc.c\
+	printf.c umalloc.c testhy.c jlnTest.c\
 	README dot-bochsrc *.pl toc.* runoff runoff1 runoff.list\
 	.gdbinit.tmpl gdbutil\
 
