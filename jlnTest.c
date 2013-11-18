@@ -8,7 +8,8 @@ main(int argc, char *argv[])
 {
   //一个简单的输出语句
   //这句执行成功
-  printf(1, "hongdashen xihuan hehe\n");
+  int t = test();
+  printf(1, "%d hongdashen xihuan hehe\n",t);
   //洪宇： 
   //创建一个文件，写入一些东西
   //jln
