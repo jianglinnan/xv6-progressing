@@ -22,6 +22,7 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+// 在这里加入你要留的用户接口
 int test(void);
 
 // ulib.c

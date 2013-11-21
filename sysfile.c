@@ -14,6 +14,13 @@
 #include "file.h"
 #include "fcntl.h"
 
+// 在这里增加系统调用的实现，最好不要调用系统提供的用户接口，可能会引发编译错误
+int 
+sys_test(void)
+{
+  return 0;
+}
+
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
 static int
@@ -47,13 +54,6 @@ fdalloc(struct file *f)
     }
   }
   return -1;
-}
-
-//测试系统调用
-int 
-sys_test(void)
-{
-  return 0;
 }
 
 int
