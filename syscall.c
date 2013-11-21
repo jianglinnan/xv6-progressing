@@ -98,6 +98,7 @@ extern int sys_unlink(void);
 extern int sys_wait(void);
 extern int sys_write(void);
 extern int sys_uptime(void);
+// 别忘了在这里加入一个extern
 extern int sys_test(void);
 
 static int (*syscalls[])(void) = {
@@ -122,6 +123,7 @@ static int (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
+// 在这里进行系统调用宏与具体函数实现的关联
 [SYS_test]    sys_test,
 };
 
