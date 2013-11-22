@@ -4,6 +4,7 @@
 #include "user.h"
 #include "fcntl.h"
 
+
 // Parsed command representation
 #define EXEC  1
 #define REDIR 2
@@ -52,6 +53,7 @@ struct backcmd {
 int fork1(void);  // Fork but panics on failure.
 void panic(char*);
 struct cmd *parsecmd(char*);
+void recordHistory(char* commd);
 
 // Execute cmd.  Never returns.
 void
@@ -130,6 +132,9 @@ runcmd(struct cmd *cmd)
   exit();
 }
 
+
+//get cmd from console
+//the input result is in buf
 int
 getcmd(char *buf, int nbuf)
 {
@@ -165,8 +170,10 @@ main(void)
         printf(2, "cannot cd %s\n", buf+3);
       continue;
     }
-    if(fork1() == 0)
+    if(fork1() == 0){
       runcmd(parsecmd(buf));
+    }
+    recordHistory(buf);
     wait();
   }
   exit();
@@ -491,4 +498,16 @@ nulterminate(struct cmd *cmd)
     break;
   }
   return cmd;
+}
+
+void
+recordHistory(char* commd){
+    int fd = open("history.txt",O_RDWR|O_CREATE);
+    const int bufSize = 256;
+    char buf[bufSize];
+    while(read(fd,buf,bufSize)){
+      memset(buf,0,bufSize);
+    }
+    write(fd,commd,strlen(commd));
+    close(fd);
 }
