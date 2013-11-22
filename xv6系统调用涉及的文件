@@ -1,5 +1,6 @@
-syscall.h
-syscall.c
-syscall.S
-usys.S
+user.h 用户入口 "mkdir()"
+syscall.h 对于被映射系统函数的宏定义 "SYS_mkdir"
+syscall.c 具体地调用系统函数，实现函数指针的映射 "SYS_mkdir -> sys_mkdir()"
+sysfile.c 具体地系统命令实现（内核） "sys_mkdir()实现"
+usys.S 控制汇编代码与用户程序的链接过程，处理int指令（系统调用等中断）"movl SYS_mkdir %eax"
 
