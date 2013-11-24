@@ -126,6 +126,8 @@ panic(char *s)
 #define CRTPORT 0x3d4
 static ushort *crt = (ushort*)P2V(0xb8000);  // CGA memory
 
+//used to put in console
+//io interface
 static void
 cgaputc(int c)
 {
@@ -136,12 +138,14 @@ cgaputc(int c)
   pos = inb(CRTPORT+1) << 8;
   outb(CRTPORT, 15);
   pos |= inb(CRTPORT+1);
-
+  //enter, change line
   if(c == '\n')
     pos += 80 - pos%80;
+  //backspace, clear a char and change positon
   else if(c == BACKSPACE){
     if(pos > 0) --pos;
   } else
+    //pos++, change position
     crt[pos++] = (c&0xff) | 0x0700;  // black on white
   
   if((pos/80) >= 24){  // Scroll up.
@@ -207,6 +211,12 @@ consoleintr(int (*getc)(void))
         input.e--;
         consputc(BACKSPACE);
       }
+      break;
+    case 0xE2:
+      cprintf("the last command");
+      break;
+    case 0xE3:
+      cprintf("the next command");
       break;
     default:
       if(c != 0 && input.e-input.r < INPUT_BUF){
@@ -290,4 +300,3 @@ consoleinit(void)
   picenable(IRQ_KBD);
   ioapicenable(IRQ_KBD, 0);
 }
-
