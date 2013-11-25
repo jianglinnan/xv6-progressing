@@ -502,7 +502,7 @@ nulterminate(struct cmd *cmd)
 
 void
 recordHistory(char* commd){
-    int fd = open("history.txt",O_RDWR|O_CREATE);
+    int fd = open("/.bash_history",O_RDWR|O_CREATE);
     const int bufSize = 256;
     char buf[bufSize];
     while(read(fd,buf,bufSize)){
