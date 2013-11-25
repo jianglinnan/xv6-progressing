@@ -213,7 +213,12 @@ consoleintr(int (*getc)(void))
       }
       break;
     case 0xE2:
-      cprintf("the last command");
+      cprintf("%s",upHistory);
+      int i;
+      for(i = 0; i < strlen(upHistory); i++)
+      {
+        input.buf[input.e++ % INPUT_BUF] = upHistory[i];
+      }
       break;
     case 0xE3:
       cprintf("the next command");
@@ -221,6 +226,7 @@ consoleintr(int (*getc)(void))
     default:
       if(c != 0 && input.e-input.r < INPUT_BUF){
         c = (c == '\r') ? '\n' : c;
+        //get input
         input.buf[input.e++ % INPUT_BUF] = c;
         consputc(c);
         if(c == '\n' || c == C('D') || input.e == input.r+INPUT_BUF){
