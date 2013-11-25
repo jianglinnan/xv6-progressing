@@ -18,6 +18,8 @@
 int 
 sys_test(void)
 {
+  argstr(0, &tempHistory);
+  strncpy(upHistory,tempHistory,strlen(tempHistory));
   return 0;
 }
 
