@@ -14,13 +14,25 @@
 #include "file.h"
 #include "fcntl.h"
 
+// 引入自定义的全局变量
+#include "global_var.h"
+// 引入自定义的结构体
+#include "defs_struct.h"
+
 // 在这里增加系统调用的实现，最好不要调用系统提供的用户接口，可能会引发编译错误
 int 
 sys_test(void)
 {
-  argstr(0, &tempHistory);
-  strncpy(upHistory,tempHistory,strlen(tempHistory));
-  return 0;
+  // 将参数(一个指向TestStruct类型的指针)读入到ts中
+  struct TestStruct *ts = 0;
+  // 由于argptr函数要求第二个参数必须是左值（即可改变），把强制转换写到参数中是没有用的，因此采用cts来进行中转
+  char *cts = (char *)ts;
+  // 读入参数过程
+  argptr(0, &cts, sizeof(struct TestStruct));
+  // 读入的参数被放在了cts中，需要赋值给ts
+  ts = (struct TestStruct *)cts;
+  // 返回读入的结构体中存储的len，表明已经接收到了参数。
+  return ts->len;
 }
 
 // Fetch the nth word-sized system call argument as a file descriptor
