@@ -14,6 +14,9 @@
 #include "proc.h"
 #include "x86.h"
 
+// 引入自定义的全局变量
+#include "global_var.h"
+
 static void consputc(int);
 
 static int panicked = 0;
@@ -213,15 +216,10 @@ consoleintr(int (*getc)(void))
       }
       break;
     case 0xE2:
-      cprintf("%s",upHistory);
-      int i;
-      for(i = 0; i < strlen(upHistory); i++)
-      {
-        input.buf[input.e++ % INPUT_BUF] = upHistory[i];
-      }
+      cprintf("the last command ");
       break;
     case 0xE3:
-      cprintf("the next command");
+      cprintf("the next command ");
       break;
     default:
       if(c != 0 && input.e-input.r < INPUT_BUF){
