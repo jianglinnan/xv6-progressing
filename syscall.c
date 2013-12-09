@@ -17,6 +17,7 @@
 int
 fetchint(uint addr, int *ip)
 {
+  // 该函数在内存的addr处抓取一个字节，存放到ip指向的地方
   if(addr >= proc->sz || addr+4 > proc->sz)
     return -1;
   *ip = *(int*)(addr);
@@ -29,6 +30,7 @@ fetchint(uint addr, int *ip)
 int
 fetchstr(uint addr, char **pp)
 {
+  // 该函数在内存的addr处抓取一个字符串，将字符串的首地址存放到pp指向的地方，返回抓取的字符串的长度。
   char *s, *ep;
 
   if(addr >= proc->sz)
@@ -45,6 +47,7 @@ fetchstr(uint addr, char **pp)
 int
 argint(int n, int *ip)
 {
+  // 抓取第n个参数，且参数为整数，n从0开始
   return fetchint(proc->tf->esp + 4 + 4*n, ip);
 }
 
@@ -54,6 +57,7 @@ argint(int n, int *ip)
 int
 argptr(int n, char **pp, int size)
 {
+  // 该函数抓取一个指针，它处于第n个参数，这个指针指向的结构体大小为size
   int i;
   
   if(argint(n, &i) < 0)
@@ -71,6 +75,7 @@ argptr(int n, char **pp, int size)
 int
 argstr(int n, char **pp)
 {
+  // 该函数抓取一个字符串，将首地址放到pp指向的位置中，n表示这是第n个参数
   int addr;
   if(argint(n, &addr) < 0)
     return -1;

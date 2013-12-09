@@ -22,8 +22,24 @@ int main(int argc, char *argv[])
 		exit();
 	}
 	
+	//判断第二个参数是不是以"/"结尾，如果是，则补全路径
+	char com[128] = {};
+	strcpy(com, argv[2]);
+	int len1 = strlen(argv[1]);
+	int len2 = strlen(argv[2]);
+	if (argv[2][len2-1] == '/')
+	{
+		//找到argv[1]中的文件名
+		int i = len1 - 1;
+		for (; i >= 0; i--)
+			if (argv[1][i] == '/')
+				break;
+		i++;
+		strcpy(&com[len2], &argv[1][i]);
+	}
+	
 	//打开目标文件
-	int fd_dest = open(argv[2], O_WRONLY|O_CREATE);
+	int fd_dest = open(com, O_WRONLY|O_CREATE);
 	if (fd_dest == -1)
 	{
 		printf(1, "create dest file failed\n");
