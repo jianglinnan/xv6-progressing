@@ -22,6 +22,15 @@ int main(int argc, char *argv[])
 		exit();
 	}
 	
+	//判断源文件状态是否为文件夹
+	struct stat st;
+	fstat(fd_src, &st);
+	if (st.type == T_DIR)
+	{
+		printf(1, "source file is a directory\n");
+		exit();
+	}
+
 	//判断第二个参数是不是以"/"结尾，如果是，则补全路径
 	char com[128] = {};
 	strcpy(com, argv[2]);
