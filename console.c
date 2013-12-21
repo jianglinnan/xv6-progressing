@@ -15,6 +15,7 @@
 #include "x86.h"
 
 // 引入自定义的全局变量
+#include "defs_struct.h"
 #include "global_var.h"
 
 static void consputc(int);
@@ -195,9 +196,10 @@ void
 consoleintr(int (*getc)(void))
 {
   int c;
-
+  int i = 0;
   acquire(&input.lock);
   while((c = getc()) >= 0){
+    int length = 0;
     switch(c){
     case C('P'):  // Process listing.
       procdump();
@@ -216,10 +218,49 @@ consoleintr(int (*getc)(void))
       }
       break;
     case 0xE2:
-      cprintf("the last command ");
+      while(input.e != input.w){
+        input.e--;
+        consputc(BACKSPACE);
+      }
+      if(first == 1){
+        length = strlen(hs.history[hs.current]);
+        for(i = 0; i < length; i++){
+          input.buf[input.e++ % INPUT_BUF] = hs.history[hs.current][i];
+          consputc(hs.history[hs.current][i]);
+        }
+        first = 0;
+        break;
+      }
+      if(hs.len >= H_ITEMS){
+        int end = (hs.start + 1) % H_ITEMS;
+        hs.current = (hs.current != end)?(hs.current - 1 + H_ITEMS) % H_ITEMS:hs.current; 
+      }
+      else
+        hs.current = (hs.current > 0)?(hs.current - 1):hs.current;
+
+      length = strlen(hs.history[hs.current]);
+      for(i = 0; i < length; i++){
+        input.buf[input.e++ % INPUT_BUF] = hs.history[hs.current][i];
+        consputc(hs.history[hs.current][i]);
+      }
       break;
     case 0xE3:
-      cprintf("the next command ");
+      while(input.e != input.w){
+        input.e--;
+        consputc(BACKSPACE);
+      }
+      if(hs.current == hs.start){
+        break;
+      }
+      if(hs.len >= H_ITEMS)
+        hs.current = (hs.current != hs.start)?(hs.current + 1) % H_ITEMS:hs.current;
+      else
+        hs.current = (hs.current < hs.start)?(hs.current + 1):hs.current;
+      length = strlen(hs.history[hs.current]);
+      for(i = 0; i < length; i++){
+        input.buf[input.e++ % INPUT_BUF] = hs.history[hs.current][i];
+        consputc(hs.history[hs.current][i]);
+      }
       break;
     default:
       if(c != 0 && input.e-input.r < INPUT_BUF){

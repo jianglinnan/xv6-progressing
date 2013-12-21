@@ -15,6 +15,31 @@ strcpy(char *s, char *t)
   return os;
 }
 
+char*
+strcat(char* dst,char* s1,char*s2){
+  char *os;
+  os = dst;
+  while((*dst++ = *s1++)!= 0)
+    ;
+  dst--;
+  while((*dst++ = *s2++)!= 0)
+    ;
+  return os;
+}
+
+char*
+substring(char* dst,char* src,int start,int end){
+  char* os;
+  os = dst;
+
+  int i;
+  for(i = start; i < end; i++){
+    *dst++ = src[i];
+  }
+  *dst++ = '\0';
+  return os;
+}
+
 int
 strcmp(const char *p, const char *q)
 {
@@ -103,3 +128,5 @@ memmove(void *vdst, void *vsrc, int n)
     *dst++ = *src++;
   return vdst;
 }
+
+

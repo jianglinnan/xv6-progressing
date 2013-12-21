@@ -35,6 +35,25 @@ sys_test(void)
   return ts->len;
 }
 
+//deal with the histories items from the user process 
+int
+sys_setHistory(void){
+  struct HistoryStruct *p = 0;
+  char *chs = (char *)p;
+  argptr(0, &chs, sizeof(struct HistoryStruct));
+  p = (struct HistoryStruct *)chs;
+  memset(&hs,0,sizeof(struct HistoryStruct));
+  hs.len = p->len;
+  hs.start = p->start;
+  hs.current = p->current;
+  int i = 0;
+  for(i = 0; i < hs.len; i++){
+    strncpy(hs.history[i],p->history[i],strlen(p->history[i]));
+  }
+  first = 1;
+  return 0;
+}
+
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
 static int
