@@ -182,13 +182,44 @@ consputc(int c)
 }
 
 #define INPUT_BUF 128
-struct {
+struct{
   struct spinlock lock;
   char buf[INPUT_BUF];
   uint r;  // Read index
   uint w;  // Write index
   uint e;  // Edit index
 } input;
+int tab_loc = -1;
+
+
+void checkPrefix(){
+  int i = 0;
+  char buffer[INPUT_BUF];
+  memset(&buffer,0,INPUT_BUF);
+  for(i = tab_loc; i < input.e; i++){
+    buffer[i - tab_loc] = input.buf[i % INPUT_BUF];
+  }
+  buffer[input.e - tab_loc] = '\0';
+
+  //if we have found the unique prefix
+  int flag = 0;
+  int index;
+  int bufLen = strlen(buffer); 
+  for(i = 0; i < ec.len; i++){
+    if(flag == 1 && strncmp(buffer,ec.commands[i],bufLen) == 0){
+      return;
+    }
+    else if(flag == 0 && strncmp(buffer,ec.commands[i],bufLen) == 0){
+      index = i;
+      flag = 1;
+    }
+  }
+  int cmdLen = strlen(ec.commands[index]);
+  for(i = bufLen; i < cmdLen; i++){
+    input.buf[input.e++ % INPUT_BUF] = ec.commands[index][i];
+    consputc(ec.commands[index][i]);
+  }
+}
 
 #define C(x)  ((x)-'@')  // Control-x
 
@@ -214,8 +245,14 @@ consoleintr(int (*getc)(void))
     case C('H'): case '\x7f':  // Backspace
       if(input.e != input.w){
         input.e--;
+        tab_loc = input.e;
         consputc(BACKSPACE);
       }
+      break;
+    case '\t':
+      if(tab_loc == -1)
+        tab_loc = input.w;
+      checkPrefix();
       break;
     case 0xE2:
       while(input.e != input.w){
@@ -237,7 +274,6 @@ consoleintr(int (*getc)(void))
       }
       else
         hs.current = (hs.current > 0)?(hs.current - 1):hs.current;
-
       length = strlen(hs.history[hs.current]);
       for(i = 0; i < length; i++){
         input.buf[input.e++ % INPUT_BUF] = hs.history[hs.current][i];
@@ -268,8 +304,11 @@ consoleintr(int (*getc)(void))
         //get input
         input.buf[input.e++ % INPUT_BUF] = c;
         consputc(c);
+        if(c == ' ')
+          tab_loc = input.e;
         if(c == '\n' || c == C('D') || input.e == input.r+INPUT_BUF){
           input.w = input.e;
+          tab_loc = input.e;
           wakeup(&input.r);
         }
       }

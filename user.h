@@ -25,6 +25,7 @@ int uptime(void);
 // 在这里加入你要留的用户接口
 int test(void*);
 int setHistory(void*);
+int setExeCmd(void*);
 
 // ulib.c
 int stat(char*, struct stat*);

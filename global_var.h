@@ -1,3 +1,4 @@
 extern int first;
-extern int last;
 extern struct HistoryStruct hs;
+extern struct ExecutedCmd ec; 
+extern int tab_loc;

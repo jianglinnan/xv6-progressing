@@ -54,6 +54,23 @@ sys_setHistory(void){
   return 0;
 }
 
+int
+sys_setExeCmd(void){
+  struct ExecutedCmd *p = 0;
+  char *cec = (char *)p;
+  argptr(0, &cec, sizeof(struct ExecutedCmd));
+  p = (struct ExecutedCmd *)cec;
+  memset(&ec,0,sizeof(struct ExecutedCmd));
+  ec.len = p->len;
+  int i = 0;
+  for(i = 0; i < ec.len; i++){
+    strncpy(ec.commands[i],p->commands[i],strlen(p->commands[i]));
+  }
+  tab_loc = -1;
+  return 0;
+}
+
+
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
 static int

@@ -55,7 +55,9 @@ void panic(char*);
 struct cmd *parsecmd(char*);
 void recordHistory(char* commd);
 void getHistory(struct HistoryStruct *hs);
+void getExecutedCmd();
 struct HistoryStruct hs;
+struct ExecutedCmd ec;
 
 // Execute cmd.  Never returns.
 void
@@ -148,9 +150,6 @@ getcmd(char *buf, int nbuf)
   return 0;
 }
 
-void printHistory(){
-  printf(1,"ls");
-}
 
 
 int
@@ -160,6 +159,8 @@ main(void)
   int fd;
   getHistory(&hs);
   setHistory(&hs);
+  getExecutedCmd();
+  setExeCmd(&ec);
   // Assumes three file descriptors open.
   while((fd = open("console", O_RDWR)) >= 0){
     if(fd >= 3){
@@ -609,4 +610,13 @@ void getHistory(struct HistoryStruct* hs){
   hs->start = (nums - 1) % H_ITEMS;
   hs->current = hs->start;
   return;
+}
+
+void getExecutedCmd(){
+  ec.len = 5;
+  strcpy(ec.commands[0],"mkdir");
+  strcpy(ec.commands[1],"abchello");
+  strcpy(ec.commands[2],"abhello");
+  strcpy(ec.commands[3],"ls");
+  strcpy(ec.commands[4],"cd");
 }

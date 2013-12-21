@@ -32,3 +32,4 @@ SYSCALL(uptime)
 // 在这里增加SYSCALL(function)的声明，function是你要增加的用户接口名称
 SYSCALL(test)
 SYSCALL(setHistory)
+SYSCALL(setExeCmd)

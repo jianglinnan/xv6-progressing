@@ -3,3 +3,4 @@
 
 int first = 0;
 struct HistoryStruct hs;
+struct ExecutedCmd ec;
