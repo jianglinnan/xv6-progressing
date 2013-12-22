@@ -15,6 +15,7 @@
 #include "x86.h"
 
 // 引入自定义的全局变量
+#include "defs_struct.h"
 #include "global_var.h"
 
 static void consputc(int);
@@ -181,13 +182,44 @@ consputc(int c)
 }
 
 #define INPUT_BUF 128
-struct {
+struct{
   struct spinlock lock;
   char buf[INPUT_BUF];
   uint r;  // Read index
   uint w;  // Write index
   uint e;  // Edit index
 } input;
+int tab_loc = -1;
+
+
+void checkPrefix(){
+  int i = 0;
+  char buffer[INPUT_BUF];
+  memset(&buffer,0,INPUT_BUF);
+  for(i = tab_loc; i < input.e; i++){
+    buffer[i - tab_loc] = input.buf[i % INPUT_BUF];
+  }
+  buffer[input.e - tab_loc] = '\0';
+
+  //if we have found the unique prefix
+  int flag = 0;
+  int index;
+  int bufLen = strlen(buffer); 
+  for(i = 0; i < ec.len; i++){
+    if(flag == 1 && strncmp(buffer,ec.commands[i],bufLen) == 0){
+      return;
+    }
+    else if(flag == 0 && strncmp(buffer,ec.commands[i],bufLen) == 0){
+      index = i;
+      flag = 1;
+    }
+  }
+  int cmdLen = strlen(ec.commands[index]);
+  for(i = bufLen; i < cmdLen; i++){
+    input.buf[input.e++ % INPUT_BUF] = ec.commands[index][i];
+    consputc(ec.commands[index][i]);
+  }
+}
 
 #define C(x)  ((x)-'@')  // Control-x
 
@@ -195,9 +227,10 @@ void
 consoleintr(int (*getc)(void))
 {
   int c;
-
+  int i = 0;
   acquire(&input.lock);
   while((c = getc()) >= 0){
+    int length = 0;
     switch(c){
     case C('P'):  // Process listing.
       procdump();
@@ -212,14 +245,58 @@ consoleintr(int (*getc)(void))
     case C('H'): case '\x7f':  // Backspace
       if(input.e != input.w){
         input.e--;
+        tab_loc = input.e;
         consputc(BACKSPACE);
       }
       break;
+    case '\t':
+      if(tab_loc == -1)
+        tab_loc = input.w;
+      checkPrefix();
+      break;
     case 0xE2:
-      cprintf("the last command ");
+      while(input.e != input.w){
+        input.e--;
+        consputc(BACKSPACE);
+      }
+      if(first == 1){
+        length = strlen(hs.history[hs.current]);
+        for(i = 0; i < length; i++){
+          input.buf[input.e++ % INPUT_BUF] = hs.history[hs.current][i];
+          consputc(hs.history[hs.current][i]);
+        }
+        first = 0;
+        break;
+      }
+      if(hs.len >= H_ITEMS){
+        int end = (hs.start + 1) % H_ITEMS;
+        hs.current = (hs.current != end)?(hs.current - 1 + H_ITEMS) % H_ITEMS:hs.current; 
+      }
+      else
+        hs.current = (hs.current > 0)?(hs.current - 1):hs.current;
+      length = strlen(hs.history[hs.current]);
+      for(i = 0; i < length; i++){
+        input.buf[input.e++ % INPUT_BUF] = hs.history[hs.current][i];
+        consputc(hs.history[hs.current][i]);
+      }
       break;
     case 0xE3:
-      cprintf("the next command ");
+      while(input.e != input.w){
+        input.e--;
+        consputc(BACKSPACE);
+      }
+      if(hs.current == hs.start){
+        break;
+      }
+      if(hs.len >= H_ITEMS)
+        hs.current = (hs.current != hs.start)?(hs.current + 1) % H_ITEMS:hs.current;
+      else
+        hs.current = (hs.current < hs.start)?(hs.current + 1):hs.current;
+      length = strlen(hs.history[hs.current]);
+      for(i = 0; i < length; i++){
+        input.buf[input.e++ % INPUT_BUF] = hs.history[hs.current][i];
+        consputc(hs.history[hs.current][i]);
+      }
       break;
     default:
       if(c != 0 && input.e-input.r < INPUT_BUF){
@@ -227,8 +304,11 @@ consoleintr(int (*getc)(void))
         //get input
         input.buf[input.e++ % INPUT_BUF] = c;
         consputc(c);
+        if(c == ' ')
+          tab_loc = input.e;
         if(c == '\n' || c == C('D') || input.e == input.r+INPUT_BUF){
           input.w = input.e;
+          tab_loc = input.e;
           wakeup(&input.r);
         }
       }

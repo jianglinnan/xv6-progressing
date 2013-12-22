@@ -3,7 +3,7 @@
 #include "types.h"
 #include "user.h"
 #include "fcntl.h"
-
+#include "defs_struct.h"
 
 // Parsed command representation
 #define EXEC  1
@@ -54,6 +54,10 @@ int fork1(void);  // Fork but panics on failure.
 void panic(char*);
 struct cmd *parsecmd(char*);
 void recordHistory(char* commd);
+void getHistory(struct HistoryStruct *hs);
+void getExecutedCmd();
+struct HistoryStruct hs;
+struct ExecutedCmd ec;
 
 // Execute cmd.  Never returns.
 void
@@ -146,9 +150,6 @@ getcmd(char *buf, int nbuf)
   return 0;
 }
 
-void printHistory(){
-  printf(1,"ls");
-}
 
 
 int
@@ -156,7 +157,10 @@ main(void)
 {
   static char buf[100];
   int fd;
-  
+  getHistory(&hs);
+  setHistory(&hs);
+  getExecutedCmd();
+  setExeCmd(&ec);
   // Assumes three file descriptors open.
   while((fd = open("console", O_RDWR)) >= 0){
     if(fd >= 3){
@@ -179,7 +183,11 @@ main(void)
     if(fork1() == 0){
       runcmd(parsecmd(buf));
     }
+    
     recordHistory(buf);
+    memset(&hs,0,sizeof(struct HistoryStruct));
+    getHistory(&hs);
+    setHistory(&hs);
     wait();
   }
   exit();
@@ -506,14 +514,109 @@ nulterminate(struct cmd *cmd)
   return cmd;
 }
 
+void itoa(char* s,int n){
+  int i = 0;
+  int len = 0;
+  while(n % 10 != 0){
+    s[len] = n % 10 + '0';
+    n = n / 10; 
+    len++;
+  }
+  for(i = 0; i < len/2; i++){
+    char tmp = s[i];
+    s[i] = s[len - 1 - i];
+    s[len - 1 - i] = tmp;
+  }
+  s[len] = '\0';
+}
+
 void
 recordHistory(char* commd){
-    int fd = open("/.bash_history",O_RDWR|O_CREATE);
     const int bufSize = 256;
     char buf[bufSize];
+    //int fn = open("/.num_history",O_RDWR|O_CREATE);
+    /*
+    char myInt[bufSize];
+
+    int flag = read(fn,buf,bufSize);
+    close(fn);
+    fn = open("/.num_history",O_RDWR|O_CREATE);
+    if(flag){
+      int n = atoi(buf) + 1;
+      itoa(myInt,n);
+      printf(1,"%d\n",n );
+      write(fn,myInt,strlen(myInt));
+    }
+    else{
+      itoa(myInt,1);
+      write(fn,myInt,strlen(myInt));
+    }
+    close(fn);
+    */
+    int fd = open("/.bash_history",O_RDWR|O_CREATE);
     while(read(fd,buf,bufSize)){
       memset(buf,0,bufSize);
     }
     write(fd,commd,strlen(commd));
     close(fd);
+}
+
+void getHistory(struct HistoryStruct* hs){
+  int fd = open("/.bash_history",O_RDONLY);
+  const int bufSize = 256;
+  char buf[bufSize];
+  int locs[bufSize];
+  char pre[bufSize];
+  char sub[bufSize];
+  int j;
+  memset(pre,'\0',bufSize);
+
+  //num of histories
+  int nums = 0;
+  int len;
+  while((len = read(fd,buf,bufSize)) > 0){
+    //num of '\n'
+    int nl = 0;
+    memset(locs,0,bufSize);
+    //record the location of every '\n'
+    for(j = 0; j < strlen(buf); j++){
+      if(buf[j] == '\n')
+      {
+        locs[nl] = j;
+        nl++;
+      }
+    }
+    if(nl >= 1){
+      memset(hs->history[nums % H_ITEMS],0,H_ITEMS);
+      memset(sub,0,bufSize);
+      strcat(hs->history[nums % H_ITEMS],pre,substring(sub,buf,0,locs[0]));
+      nums++;
+    }
+    for(j = 1; j <= nl - 1; j++){
+      memset(hs->history[nums % H_ITEMS],0,H_ITEMS);
+      memset(sub,0,bufSize);
+      strcpy(hs->history[nums % H_ITEMS],substring(sub,buf,locs[j-1] + 1,locs[j]));
+      nums++;
+    }
+    if(len == bufSize && locs[nl-1] < len - 1){
+      memset(pre,0,bufSize);
+      memset(sub,0,bufSize);
+      strcpy(pre,substring(sub,buf,locs[nl-1] + 1,len));
+      memset(buf,0,bufSize);
+    }
+  }
+  close(fd);
+  hs->len = nums;
+  hs->start = (nums - 1) % H_ITEMS;
+  hs->current = hs->start;
+  return;
+}
+
+void getExecutedCmd(){
+  ec.len = 5;
+  strcpy(ec.commands[0],"mkdir");
+  strcpy(ec.commands[1],"abchello");
+  strcpy(ec.commands[2],"abhello");
+  strcpy(ec.commands[3],"ls");
+  strcpy(ec.commands[4],"cd");
 }
