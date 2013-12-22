@@ -22,3 +22,5 @@
 #define SYS_close  21
 // 在这里定义一个宏，建议写成SYS_function形式
 #define SYS_test   22
+#define SYS_setHistory 23
+#define SYS_setExeCmd 24

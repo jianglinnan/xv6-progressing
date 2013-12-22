@@ -105,6 +105,8 @@ extern int sys_write(void);
 extern int sys_uptime(void);
 // 别忘了在这里加入一个extern
 extern int sys_test(void);
+extern int sys_setHistory(void);
+extern int sys_setExeCmd(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -130,6 +132,8 @@ static int (*syscalls[])(void) = {
 [SYS_close]   sys_close,
 // 在这里进行系统调用宏与具体函数实现的关联
 [SYS_test]    sys_test,
+[SYS_setHistory]    sys_setHistory,
+[SYS_setExeCmd]    sys_setExeCmd,       
 };
 
 void
