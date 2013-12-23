@@ -203,10 +203,11 @@ void checkPrefix(){
 
   //if we have found the unique prefix
   int flag = 0;
-  int index;
+  int index = -1;
   int bufLen = strlen(buffer); 
   for(i = 0; i < ec.len; i++){
     if(flag == 1 && strncmp(buffer,ec.commands[i],bufLen) == 0){
+      flag = 2;
       return;
     }
     else if(flag == 0 && strncmp(buffer,ec.commands[i],bufLen) == 0){
@@ -214,6 +215,8 @@ void checkPrefix(){
       flag = 1;
     }
   }
+  if(index == -1 || flag == 2)
+    return;
   int cmdLen = strlen(ec.commands[index]);
   for(i = bufLen; i < cmdLen; i++){
     input.buf[input.e++ % INPUT_BUF] = ec.commands[index][i];
@@ -286,6 +289,7 @@ consoleintr(int (*getc)(void))
         consputc(BACKSPACE);
       }
       if(hs.current == hs.start){
+        first = 1;
         break;
       }
       if(hs.len >= H_ITEMS)

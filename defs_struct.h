@@ -4,7 +4,7 @@ struct TestStruct
 	char buf[128];
 };
 
-#define H_ITEMS 3
+#define H_ITEMS 32
 #define H_LEN 128
 struct HistoryStruct{
 	int len;
