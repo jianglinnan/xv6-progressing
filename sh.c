@@ -62,6 +62,7 @@ struct HistoryStruct hs;
 struct ExecutedCmd ec;
 char* fmtname(char* path);
 void fixcmd(char* errorcmd);
+char** getcmdlist(char* path, int* listlen);
 
 // Execute cmd.  Never returns.
 void
@@ -184,12 +185,13 @@ main(void)
       buf[strlen(buf)-1] = 0;  // chop \n
       if(chdir(buf+3) < 0)
         printf(2, "cannot cd %s\n", buf+3);
+      getExecutedCmd();
+      setExeCmd(&ec);
       continue;
     }
     if(fork1() == 0){
       runcmd(parsecmd(buf));
     }
-    
     recordHistory(buf);
     memset(&hs,0,sizeof(struct HistoryStruct));
     getHistory(&hs);
@@ -549,7 +551,7 @@ recordHistory(char* commd){
 }
 
 void getHistory(struct HistoryStruct* hs){
-  int fd = open("/.bash_history",O_RDONLY);
+  int fd = open("/.bash_history",O_RDONLY|O_CREATE);
   const int bufSize = 256;
   char buf[bufSize];
   int locs[bufSize];
@@ -600,12 +602,15 @@ void getHistory(struct HistoryStruct* hs){
 }
 
 void getExecutedCmd(){
-  ec.len = 5;
-  strcpy(ec.commands[0],"mkdir");
-  strcpy(ec.commands[1],"abchello");
-  strcpy(ec.commands[2],"abhello");
-  strcpy(ec.commands[3],"ls");
-  strcpy(ec.commands[4],"cd");
+  int length = 0;
+  char** cmd = getcmdlist(".",&length);
+  if(length >= MAX_EXECMD)
+    length = MAX_EXECMD;
+  int i = 0;
+  ec.len = length;
+  for(i = 0; i < length; i++){
+    strcpy(ec.commands[i],cmd[i]);
+  }
 }
 
 char*
