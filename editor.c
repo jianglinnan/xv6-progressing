@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
 		input[len-1] = '\0';
 		len --;
 		//寻找命令中第一个空格
-		int pos = len-1;
+		int pos = MAX_LINE_LENGTH - 1;
 		int j = 0;
 		for (; j < 8; j++)
 		{
@@ -102,6 +102,7 @@ int main(int argc, char *argv[])
 				break;
 			}
 		}
+		//ins
 		if (input[0] == 'i' && input[1] == 'n' && input[2] == 's')
 		{
 			if (input[3] == '-')
@@ -111,6 +112,7 @@ int main(int argc, char *argv[])
 			//插入操作需要更新行号
 			line_number = get_line_number(text);
 		}
+		//mod
 		else if (input[0] == 'm' && input[1] == 'o' && input[2] == 'd')
 		{
 			if (input[3] == '-')
@@ -118,6 +120,7 @@ int main(int argc, char *argv[])
 			else
 				com_mod(text, line_number + 1, &input[pos]);
 		}
+		//del
 		else if (input[0] == 'd' && input[1] == 'e' && input[2] == 'l')
 		{
 			if (input[3] == '-')
