@@ -7,10 +7,11 @@
 #define BUF_SIZE 256
 #define MAX_LINE_NUMBER 256
 #define MAX_LINE_LENGTH 256
+#define NULL 0
 
 char* strcat_n(char* dest, char* src, int len);
 int get_line_number(char *text[]);
-void show(char *text[]);
+void show_text(char *text[]);
 void com_ins(char *text[], int n, char *extra);
 void com_mod(char *text[], int n, char *extra);
 void com_del(char *text[], int n);
@@ -36,7 +37,7 @@ int main(int argc, char *argv[])
 	//存储当前最大的行号，从0开始。即若line_number == x，则从text[0]到text[x]可用
 	int line_number = 0;
 	//尝试打开文件
-	int fd = open(argv[1], O_RDWR);
+	int fd = open(argv[1], O_RDONLY);
 	//如果文件存在，则打开并读取里面的内容
 	if (fd != -1)
 	{
@@ -77,7 +78,7 @@ int main(int argc, char *argv[])
 	}
 	
 	//输出文件内容
-	show(text);
+	show_text(text);
 	//输出帮助
 	com_help(text);
 	
@@ -170,12 +171,12 @@ char* strcat_n(char* dest, char* src, int len)
 	return dest;
 }
 
-void show(char *text[])
+void show_text(char *text[])
 {
 	printf(1, "****************************************\n");
 	printf(1, "the contents of the file are:\n");
 	int j = 0;
-	for (; text[j] != 0; j++)
+	for (; text[j] != NULL; j++)
 		printf(1, "%d%d%d:%s\n", (j+1)/100, ((j+1)%100)/10, (j+1)%10, text[j]);
 }
 
@@ -184,7 +185,7 @@ int get_line_number(char *text[])
 {
 	int i = 0;
 	for (; i < MAX_LINE_NUMBER; i++)
-		if (text[i] == 0)
+		if (text[i] == NULL)
 			return i - 1;
 	return i - 1;
 }
@@ -210,27 +211,27 @@ void com_ins(char *text[], int n, char *extra)
 	int i = MAX_LINE_NUMBER - 1;
 	for (; i > n; i--)
 	{
-		if (text[i-1] == 0)
+		if (text[i-1] == NULL)
 			continue;
-		else if (text[i] == 0 && text[i-1] != 0)
+		else if (text[i] == NULL && text[i-1] != NULL)
 		{
 			text[i] = malloc(MAX_LINE_LENGTH);
 			memset(text[i], 0, MAX_LINE_LENGTH);
 			strcpy(text[i], text[i-1]);
 		}
-		else if (text[i] != 0 && text[i-1] != 0)
+		else if (text[i] != NULL && text[i-1] != NULL)
 		{
 			memset(text[i], 0, MAX_LINE_LENGTH);
 			strcpy(text[i], text[i-1]);
 		}
 	}
-	if (text[n] == 0)
+	if (text[n] == NULL)
 		text[n] = malloc(MAX_LINE_LENGTH);
 	memset(text[n], 0, MAX_LINE_LENGTH);
 	strcpy(text[n], input);
 	changed = 1;
 	if (auto_show == 1)
-		show(text);
+		show_text(text);
 }
 
 //修改命令，n为用户输入的行号，从1开始
@@ -255,7 +256,7 @@ void com_mod(char *text[], int n, char *extra)
 	strcpy(text[n-1], input);
 	changed = 1;
 	if (auto_show == 1)
-		show(text);
+		show_text(text);
 }
 
 //删除命令，n为用户输入的行号，从1开始
@@ -268,7 +269,7 @@ void com_del(char *text[], int n)
 	}
 	memset(text[n-1], 0, MAX_LINE_LENGTH);
 	int i = n - 1;
-	for (; text[i+1] != 0; i++)
+	for (; text[i+1] != NULL; i++)
 	{
 		strcpy(text[i], text[i+1]);
 		memset(text[i+1], 0, MAX_LINE_LENGTH);
@@ -280,7 +281,7 @@ void com_del(char *text[], int n)
 	}
 	changed = 1;
 	if (auto_show == 1)
-		show(text);
+		show_text(text);
 }
 
 void com_help(char *text[])
@@ -310,16 +311,19 @@ void com_save(char *text[], char *path)
 		printf(1, "save failed, file can't open:\n");
 		exit();
 	}
-	if (text[0] == 0)
+	if (text[0] == NULL)
 	{
 		close(fd);
 		return;
 	}
 	//写数据
-	printf(fd, "%s", text[0]);
+	write(fd, text[0], strlen(text[0]));
 	int i = 1;
-	for (; text[i] != 0; i++)
-		printf(fd, "\n%s", text[i]);
+	for (; text[i] != NULL; i++)
+	{
+		printf(fd, "\n");
+		write(fd, text[i], strlen(text[i]));
+	}
 	close(fd);
 	printf(1, "saved successfully\n");
 	changed = 0;
@@ -328,6 +332,7 @@ void com_save(char *text[], char *path)
 
 void com_exit(char *text[], char *path)
 {
+	//询问是否保存
 	if (changed == 1)
 	{
 		printf(1, "save the file? y/n\n");
@@ -337,5 +342,13 @@ void com_exit(char *text[], char *path)
 		if (strcmp(input, "y") == 0)
 			com_save(text, path);
 	}
+	//释放内存
+	int i = 0;
+	for (; text[i] != NULL; i++)
+	{
+		free(text[i]);
+		text[i] = 0;
+	}
+	//退出
 	exit();
 }
