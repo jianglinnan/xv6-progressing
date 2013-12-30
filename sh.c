@@ -177,7 +177,8 @@ main(void)
 
   // Read and run input commands.
   while(getcmd(buf, sizeof(buf)) >= 0){
-
+    if(strcmp(buf,"ESC\n") == 0)
+      exit();
     if(buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' '){
       // Clumsy but will have to do for now.
       // Chdir has no effect on the parent if run in the child.
@@ -601,17 +602,47 @@ void getHistory(struct HistoryStruct* hs){
   return;
 }
 
+#define STATIC_CMD_LEN 12
+
 void getExecutedCmd(){
+
+  char staticCommands[STATIC_CMD_LEN][16] = {
+    "/ls",
+    "/mkdir",
+    "/cp",
+    "/mv",
+    "/rename",
+    "/rm",
+    "/cat",
+    "/history",
+    "/editor",
+    "/uptime",
+    "/help",
+    "/script"
+  };
+
   int length = 0;
+  int flag = 0;
   char** cmd = getcmdlist(".",&length);
   if(length >= MAX_EXECMD)
     length = MAX_EXECMD;
   int i = 0;
   ec.len = length;
   for(i = 0; i < length; i++){
+    if(strcmp(cmd[i],"ls") == 0){
+      flag = 1;
+    }
     strcpy(ec.commands[i],cmd[i]);
   }
+  if(flag == 0){
+    for(i = length; i < length + STATIC_CMD_LEN; i++){
+      strcpy(ec.commands[i],staticCommands[i - length]);
+      printf(1,"%s\n",ec.commands[i]);
+    }
+    ec.len += STATIC_CMD_LEN;
+  }
 }
+
 
 char*
 fmtname(char* path)

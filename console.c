@@ -357,6 +357,10 @@ consoleintr(int (*getc)(void))
         consputc(hs.history[hs.current][i]);
       }
       break;
+    case 0xE4:
+      break;
+    case 0xE5:
+      break;
     default:
       if(c != 0 && input.e-input.r < INPUT_BUF){
         initBlank();
