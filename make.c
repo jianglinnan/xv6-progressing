@@ -68,8 +68,6 @@ main(int argc, char *argv[])
 	//尝试打开Makefile文件
 	int fd = open("makefile", O_RDWR);
 	if (fd == -1)
-		fd = open("makefile", O_RDWR);
-	if (fd == -1)
 	{
 		printf(1, "Can't find makefile. Halt. \n");
 		return 0;

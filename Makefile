@@ -175,6 +175,7 @@ UPROGS=\
 	_test_hy\
 	_test_jln\
 	_test_syb\
+	_make\
 	_touch\
 	_cp\
 	_editor\
@@ -254,7 +255,7 @@ qemu-nox-gdb: fs.img xv6.img .gdbinit
 EXTRA=\
 	mkfs.c ulib.c user.h cat.c echo.c forktest.c grep.c kill.c\
 	ln.c ls.c mkdir.c rm.c stressfs.c usertests.c wc.c zombie.c\
-	printf.c umalloc.c test_hy.c test_jln.c test_syb.c touch.c cp.c \
+	printf.c umalloc.c test_hy.c test_jln.c test_syb.c touch.c make.c cp.c \
 	editor.c help.c history.c mv.c rename.c script.c uptime.c\
 	README dot-bochsrc *.pl toc.* runoff runoff1 runoff.list\
 	.gdbinit.tmpl gdbutil\
