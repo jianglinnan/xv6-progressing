@@ -1,4 +1,4 @@
-// Shell.
+// Shell命令
 
 #include "types.h"
 #include "user.h"

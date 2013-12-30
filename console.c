@@ -324,21 +324,28 @@ consoleintr(int (*getc)(void))
       }
       break;
     case '\t':
-      initBlank();
-      if(tab_loc == -1){
-        tab_loc = input.w; 
-        last_tab_loc = 0;      
+      if(program_status == SHELL){
+        initBlank();
+        if(tab_loc == -1){
+          tab_loc = input.w; 
+          last_tab_loc = 0;      
+        }
+        if(constant_tab != -1){
+          while(input.e != last_tab_loc){
+            input.e--;
+            consputc(BACKSPACE);
+          }
+        }
+        else
+          last_tab_loc = input.e;
+        checkPrefix();
       }
-      if(constant_tab != -1){
-        while(input.e != last_tab_loc){
-          input.e--;
-          consputc(BACKSPACE);
+      else if(program_status == CAT || program_status == EDITOR){
+        for(i = 0; i < 4; i++) {
+          input.buf[input.e++ % INPUT_BUF] = ' ';
+          consputc(' ');
         }
       }
-      else
-        last_tab_loc = input.e;
-
-      checkPrefix();
       break;
     case 0xE2:
       if(program_status == SHELL){
