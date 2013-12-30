@@ -14,12 +14,62 @@
 #include "file.h"
 #include "fcntl.h"
 
+// 引入自定义的全局变量
+#include "global_var.h"
+// 引入自定义的结构体
+#include "defs_struct.h"
+
 // 在这里增加系统调用的实现，最好不要调用系统提供的用户接口，可能会引发编译错误
 int 
 sys_test(void)
 {
+  // 将参数(一个指向TestStruct类型的指针)读入到ts中
+  struct TestStruct *ts = 0;
+  // 由于argptr函数要求第二个参数必须是左值（即可改变），把强制转换写到参数中是没有用的，因此采用cts来进行中转
+  char *cts = (char *)ts;
+  // 读入参数过程
+  argptr(0, &cts, sizeof(struct TestStruct));
+  // 读入的参数被放在了cts中，需要赋值给ts
+  ts = (struct TestStruct *)cts;
+  // 返回读入的结构体中存储的len，表明已经接收到了参数。
+  return ts->len;
+}
+
+//deal with the histories items from the user process 
+int
+sys_setHistory(void){
+  struct HistoryStruct *p = 0;
+  char *chs = (char *)p;
+  argptr(0, &chs, sizeof(struct HistoryStruct));
+  p = (struct HistoryStruct *)chs;
+  memset(&hs,0,sizeof(struct HistoryStruct));
+  hs.len = p->len;
+  hs.start = p->start;
+  hs.current = p->current;
+  int i = 0;
+  for(i = 0; i < hs.len; i++){
+    strncpy(hs.history[i],p->history[i],strlen(p->history[i]));
+  }
+  first = 1;
   return 0;
 }
+
+int
+sys_setExeCmd(void){
+  struct ExecutedCmd *p = 0;
+  char *cec = (char *)p;
+  argptr(0, &cec, sizeof(struct ExecutedCmd));
+  p = (struct ExecutedCmd *)cec;
+  memset(&ec,0,sizeof(struct ExecutedCmd));
+  ec.len = p->len;
+  int i = 0;
+  for(i = 0; i < ec.len; i++){
+    strncpy(ec.commands[i],p->commands[i],strlen(p->commands[i]));
+  }
+  tab_loc = -1;
+  return 0;
+}
+
 
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.

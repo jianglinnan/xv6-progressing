@@ -14,6 +14,10 @@
 #include "proc.h"
 #include "x86.h"
 
+// 引入自定义的全局变量
+#include "defs_struct.h"
+#include "global_var.h"
+
 static void consputc(int);
 
 static int panicked = 0;
@@ -178,13 +182,67 @@ consputc(int c)
 }
 
 #define INPUT_BUF 128
-struct {
+struct{
   struct spinlock lock;
   char buf[INPUT_BUF];
   uint r;  // Read index
   uint w;  // Write index
   uint e;  // Edit index
 } input;
+int tab_loc = -1;
+int constant_tab = -1;
+int last_tab_loc = -1;
+
+int last_blank_loc = 0;
+int blanks[32];
+int blank_len = 0;
+int firstInput = 1;
+
+void initBlank(){
+  if(firstInput == 1){
+    firstInput = 0;
+    blank_len = 1;
+    memset(&blanks,0,32);
+    blanks[0] = input.w;
+  }
+}
+
+
+void checkPrefix(){
+  int i = 0;
+  char buffer[INPUT_BUF];
+  memset(&buffer,0,INPUT_BUF);
+  for(i = tab_loc; i < input.e; i++){
+    buffer[i - tab_loc] = input.buf[i % INPUT_BUF];
+  }
+  buffer[input.e - tab_loc] = '\0';
+
+  //if we have found the unique prefix
+  int flag = 0;
+  constant_tab++;
+  int bufLen = strlen(buffer); 
+  for(i = constant_tab; i < ec.len; i++){
+    if(strncmp(buffer,ec.commands[i],bufLen) == 0){
+      flag = 1;
+      constant_tab = i;
+      break;
+    }
+  }
+  if(flag == 0){
+    if(constant_tab == 0)
+        return;  
+    else{
+        constant_tab = -1;
+        checkPrefix();
+        return;
+    }
+  }
+  int cmdLen = strlen(ec.commands[constant_tab]);
+  for(i = bufLen; i < cmdLen; i++){
+    input.buf[input.e++ % INPUT_BUF] = ec.commands[constant_tab][i];
+    consputc(ec.commands[constant_tab][i]);
+  }
+}
 
 #define C(x)  ((x)-'@')  // Control-x
 
@@ -192,9 +250,10 @@ void
 consoleintr(int (*getc)(void))
 {
   int c;
-
+  int i = 0;
   acquire(&input.lock);
   while((c = getc()) >= 0){
+    int length = 0;
     switch(c){
     case C('P'):  // Process listing.
       procdump();
@@ -207,24 +266,102 @@ consoleintr(int (*getc)(void))
       }
       break;
     case C('H'): case '\x7f':  // Backspace
+      constant_tab = -1;
       if(input.e != input.w){
+        if(input.e == blanks[blank_len-1]){
+          blanks[blank_len - 1] = 0;
+          blank_len--;
+          //cprintf("***%d***",tab_loc);
+          tab_loc = blanks[blank_len-1];
+          //cprintf("***%d***",tab_loc);
+        }
         input.e--;
         consputc(BACKSPACE);
       }
       break;
+    case '\t':
+      initBlank();
+      if(tab_loc == -1){
+        tab_loc = input.w; 
+        last_tab_loc = 0;      
+      }
+      if(constant_tab != -1){
+        while(input.e != last_tab_loc){
+          input.e--;
+          consputc(BACKSPACE);
+        }
+      }
+      else
+        last_tab_loc = input.e;
+
+      checkPrefix();
+      break;
     case 0xE2:
-      cprintf("the last command");
+      constant_tab = -1;
+      while(input.e != input.w){
+        input.e--;
+        consputc(BACKSPACE);
+      }
+      if(first == 1){
+        length = strlen(hs.history[hs.current]);
+        for(i = 0; i < length; i++){
+          input.buf[input.e++ % INPUT_BUF] = hs.history[hs.current][i];
+          consputc(hs.history[hs.current][i]);
+        }
+        first = 0;
+        break;
+      }
+      if(hs.len >= H_ITEMS){
+        int end = (hs.start + 1) % H_ITEMS;
+        hs.current = (hs.current != end)?(hs.current - 1 + H_ITEMS) % H_ITEMS:hs.current; 
+      }
+      else
+        hs.current = (hs.current > 0)?(hs.current - 1):hs.current;
+      length = strlen(hs.history[hs.current]);
+      for(i = 0; i < length; i++){
+        input.buf[input.e++ % INPUT_BUF] = hs.history[hs.current][i];
+        consputc(hs.history[hs.current][i]);
+      }
       break;
     case 0xE3:
-      cprintf("the next command");
+      constant_tab = -1;
+      while(input.e != input.w){
+        input.e--;
+        consputc(BACKSPACE);
+      }
+      if(hs.current == hs.start){
+        first = 1;
+        break;
+      }
+      if(hs.len >= H_ITEMS)
+        hs.current = (hs.current != hs.start)?(hs.current + 1) % H_ITEMS:hs.current;
+      else
+        hs.current = (hs.current < hs.start)?(hs.current + 1):hs.current;
+      length = strlen(hs.history[hs.current]);
+      for(i = 0; i < length; i++){
+        input.buf[input.e++ % INPUT_BUF] = hs.history[hs.current][i];
+        consputc(hs.history[hs.current][i]);
+      }
       break;
     default:
       if(c != 0 && input.e-input.r < INPUT_BUF){
+        initBlank();
+        //cprintf("***%d**",blank_len);
+        constant_tab = -1;
         c = (c == '\r') ? '\n' : c;
+        //get input
         input.buf[input.e++ % INPUT_BUF] = c;
         consputc(c);
+        if(c == ' '){
+          blank_len++;
+          blanks[blank_len-1] = input.e;
+          tab_loc = input.e;
+          //cprintf("***%d**",blank_len);
+        }
         if(c == '\n' || c == C('D') || input.e == input.r+INPUT_BUF){
+          firstInput = 1;
           input.w = input.e;
+          tab_loc = input.e;
           wakeup(&input.r);
         }
       }
@@ -233,6 +370,7 @@ consoleintr(int (*getc)(void))
   }
   release(&input.lock);
 }
+
 
 int
 consoleread(struct inode *ip, char *dst, int n)

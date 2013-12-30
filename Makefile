@@ -27,6 +27,7 @@ OBJS = \
 	uart.o\
 	vectors.o\
 	vm.o\
+	global_var.o\
 
 # Cross-compiling (e.g., on Mac OS X)
 #TOOLPREFIX = i386-jos-elf-
@@ -174,9 +175,14 @@ UPROGS=\
 	_test_hy\
 	_test_jln\
 	_test_syb\
-	_history\
 	_cp\
+	_editor\
+	_help\
+	_history\
 	_mv\
+	_rename\
+	_script\
+	_uptime\
 
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)
@@ -247,8 +253,8 @@ qemu-nox-gdb: fs.img xv6.img .gdbinit
 EXTRA=\
 	mkfs.c ulib.c user.h cat.c echo.c forktest.c grep.c kill.c\
 	ln.c ls.c mkdir.c rm.c stressfs.c usertests.c wc.c zombie.c\
-	printf.c umalloc.c test_hy.c test_jln.c test_syb.c history.c\
-	cp.c mv.c\
+	printf.c umalloc.c test_hy.c test_jln.c test_syb.c cp.c \
+	editor.c help.c history.c mv.c rename.c script.c uptime.c\
 	README dot-bochsrc *.pl toc.* runoff runoff1 runoff.list\
 	.gdbinit.tmpl gdbutil\
 

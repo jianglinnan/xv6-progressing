@@ -3,7 +3,9 @@
 #include "types.h"
 #include "user.h"
 #include "fcntl.h"
-
+#include "stat.h"
+#include "fs.h"
+#include "defs_struct.h"
 
 // Parsed command representation
 #define EXEC  1
@@ -54,6 +56,13 @@ int fork1(void);  // Fork but panics on failure.
 void panic(char*);
 struct cmd *parsecmd(char*);
 void recordHistory(char* commd);
+void getHistory(struct HistoryStruct *hs);
+void getExecutedCmd();
+struct HistoryStruct hs;
+struct ExecutedCmd ec;
+char* fmtname(char* path);
+void fixcmd(char* errorcmd);
+char** getcmdlist(char* path, int* listlen);
 
 // Execute cmd.  Never returns.
 void
@@ -79,6 +88,7 @@ runcmd(struct cmd *cmd)
       exit();
     exec(ecmd->argv[0], ecmd->argv);
     printf(2, "exec %s failed\n", ecmd->argv[0]);
+    fixcmd(ecmd->argv[0]);
     break;
 
   case REDIR:
@@ -146,12 +156,17 @@ getcmd(char *buf, int nbuf)
   return 0;
 }
 
+
+
 int
 main(void)
 {
   static char buf[100];
   int fd;
-  
+  getHistory(&hs);
+  setHistory(&hs);
+  getExecutedCmd();
+  setExeCmd(&ec);
   // Assumes three file descriptors open.
   while((fd = open("console", O_RDWR)) >= 0){
     if(fd >= 3){
@@ -159,21 +174,28 @@ main(void)
       break;
     }
   }
-  
+
   // Read and run input commands.
   while(getcmd(buf, sizeof(buf)) >= 0){
+
     if(buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' '){
       // Clumsy but will have to do for now.
       // Chdir has no effect on the parent if run in the child.
+      recordHistory(buf);
       buf[strlen(buf)-1] = 0;  // chop \n
       if(chdir(buf+3) < 0)
         printf(2, "cannot cd %s\n", buf+3);
+      getExecutedCmd();
+      setExeCmd(&ec);
       continue;
     }
     if(fork1() == 0){
       runcmd(parsecmd(buf));
     }
     recordHistory(buf);
+    memset(&hs,0,sizeof(struct HistoryStruct));
+    getHistory(&hs);
+    setHistory(&hs);
     wait();
   }
   exit();
@@ -500,14 +522,280 @@ nulterminate(struct cmd *cmd)
   return cmd;
 }
 
+void itoa(char* s,int n){
+  int i = 0;
+  int len = 0;
+  while(n % 10 != 0){
+    s[len] = n % 10 + '0';
+    n = n / 10; 
+    len++;
+  }
+  for(i = 0; i < len/2; i++){
+    char tmp = s[i];
+    s[i] = s[len - 1 - i];
+    s[len - 1 - i] = tmp;
+  }
+  s[len] = '\0';
+}
+
 void
 recordHistory(char* commd){
-    int fd = open("/.bash_history",O_RDWR|O_CREATE);
     const int bufSize = 256;
     char buf[bufSize];
+    int fd = open("/.bash_history",O_RDWR|O_CREATE);
     while(read(fd,buf,bufSize)){
       memset(buf,0,bufSize);
     }
     write(fd,commd,strlen(commd));
     close(fd);
+}
+
+void getHistory(struct HistoryStruct* hs){
+  int fd = open("/.bash_history",O_RDONLY|O_CREATE);
+  const int bufSize = 256;
+  char buf[bufSize];
+  int locs[bufSize];
+  char pre[bufSize];
+  char sub[bufSize];
+  int j;
+  memset(pre,'\0',bufSize);
+
+  //num of histories
+  int nums = 0;
+  int len;
+  while((len = read(fd,buf,bufSize)) > 0){
+    //num of '\n'
+    int nl = 0;
+    memset(locs,0,bufSize);
+    //record the location of every '\n'
+    for(j = 0; j < strlen(buf); j++){
+      if(buf[j] == '\n')
+      {
+        locs[nl] = j;
+        nl++;
+      }
+    }
+    if(nl >= 1){
+      memset(hs->history[nums % H_ITEMS],0,H_ITEMS);
+      memset(sub,0,bufSize);
+      strcat(hs->history[nums % H_ITEMS],pre,substring(sub,buf,0,locs[0]));
+      nums++;
+    }
+    for(j = 1; j <= nl - 1; j++){
+      memset(hs->history[nums % H_ITEMS],0,H_ITEMS);
+      memset(sub,0,bufSize);
+      strcpy(hs->history[nums % H_ITEMS],substring(sub,buf,locs[j-1] + 1,locs[j]));
+      nums++;
+    }
+    if(len == bufSize && locs[nl-1] < len - 1){
+      memset(pre,0,bufSize);
+      memset(sub,0,bufSize);
+      strcpy(pre,substring(sub,buf,locs[nl-1] + 1,len));
+      memset(buf,0,bufSize);
+    }
+  }
+  close(fd);
+  hs->len = nums;
+  hs->start = (nums - 1) % H_ITEMS;
+  hs->current = hs->start;
+  return;
+}
+
+void getExecutedCmd(){
+  int length = 0;
+  char** cmd = getcmdlist(".",&length);
+  if(length >= MAX_EXECMD)
+    length = MAX_EXECMD;
+  int i = 0;
+  ec.len = length;
+  for(i = 0; i < length; i++){
+    strcpy(ec.commands[i],cmd[i]);
+  }
+}
+
+char*
+fmtname(char* path)
+{
+  static char buf[DIRSIZ+1];
+  char *p;
+  
+  // Find first character after last slash.
+  for(p=path+strlen(path); p >= path && *p != '/'; p--)
+    ;
+  p++;
+  
+  // Return blank-padded name.
+  if(strlen(p) >= DIRSIZ)
+    return p;
+  memmove(buf, p, strlen(p));
+  memset(buf+strlen(p), ' ', DIRSIZ-strlen(p));
+  return buf;
+}
+
+// 获取path路径下的所有命令
+char**
+getcmdlist(char* path, int* listlen)
+{
+  char buf[512], *p;
+  int fd;
+  struct dirent de;
+  struct stat st;
+
+  char **cmdall;
+  cmdall = malloc(sizeof(char*)*30);
+  int i = 0;
+  while(1){
+    cmdall[i] = malloc(sizeof(char)*30);
+    i ++;
+    if(i == 30)
+      break;
+  }
+
+  int cmdflag = 0;
+  for (i = 0;i < 30;i ++)
+    memset(cmdall[i], 0, 30);
+  
+  if((fd = open(path, 0)) < 0){
+    printf(2, "getcmdlist: cannot open %s\n", path);
+  }
+  
+  if(fstat(fd, &st) < 0){
+    printf(2, "getcmdlist: cannot stat %s\n", path);
+    close(fd);
+  }
+  
+  switch(st.type){
+  case T_FILE:
+    printf(1, "%s %d %d %d\n", fmtname(path), st.type, st.ino, st.size);
+    break;
+  
+  case T_DIR:
+
+    if(strlen(path) + 1 + DIRSIZ + 1 > sizeof buf){
+      printf(1, "getcmdlist: path too long\n");
+      break;
+    }
+    strcpy(buf, path);
+    p = buf+strlen(buf);
+    *p++ = '/';
+    while(read(fd, &de, sizeof(de)) == sizeof(de)){
+      if(de.inum == 0)
+        continue;
+      memmove(p, de.name, DIRSIZ);
+      p[DIRSIZ] = 0;
+      if(stat(buf, &st) < 0){
+        printf(1, "getcmdlist: cannot stat %s\n", buf);
+        continue;
+      }
+      if(st.type == 2){
+        strcpy(cmdall[cmdflag], fmtname(buf));
+        int j = 0;
+        for (j = strlen(cmdall[cmdflag]) - 1;j >= 0;j --){
+          if (cmdall[cmdflag][j] == ' ')
+            cmdall[cmdflag][j] = 0;
+          else
+            break;
+        }
+        cmdflag++;
+      }
+    }
+    break;
+  }
+  close(fd);
+  *listlen = cmdflag;
+
+  return (char**)cmdall;
+}
+
+int
+threeintmin(int x1, int x2, int x3){
+  if ((x1 <= x2) && (x1 <= x3))
+    return x1;
+  else if ((x2 <= x1) && (x2 <= x3))
+    return x2;
+  else
+    return x3;
+}
+
+int
+stringdistance(char* s1, char* s2)
+{
+  int len1 = (int)strlen(s1);
+  int len2 = (int)strlen(s2);
+
+  int **dp;
+  dp = malloc(sizeof(int*)*(len1 + 1));
+  int i = 0;
+  for (i = 0;i <= len1;i ++){
+    dp[i] = malloc(sizeof(int)*(len2 + 1));
+  }
+  for (i = 0;i <= len1;i ++){
+    dp[i][0] = i;
+  }
+  for (i = 0;i <= len2;i ++){
+    dp[0][i] = i;
+  }
+
+  dp[0][0] = 0;
+
+  //printf(1, "%s\n", s1);
+  //printf(1, "%s\n", s2);
+  int j = 0;
+  for (i = 1;i <= len1;i ++){
+    for (j = 1;j <= len2;j ++){
+      if (s1[i - 1] == s2[j - 1])
+        dp[i][j] = dp[i - 1][j - 1];
+      else
+        dp[i][j] = threeintmin(dp[i][j - 1], dp[i - 1][j], dp[i - 1][j - 1]) + 1;
+      //printf(1, "%d ", dp[i][j]);
+    }
+    //printf(1, "\n");
+  }
+  //printf(1, "\n");
+
+  int ans = dp[len1][len2];
+  free(dp);
+  return ans;
+}
+
+void
+fixcmd(char *errorcmd)
+{
+  int cmdlistlen;
+  char **cmdlist;
+  cmdlist = getcmdlist(".", &cmdlistlen);
+  int* cmdlistflag;
+  int* cmdlistdis;
+  cmdlistflag = malloc(sizeof(int)*cmdlistlen);
+  cmdlistdis = malloc(sizeof(int)*cmdlistlen);
+  int i;
+  for (i = 0;i < cmdlistlen;i ++){
+    cmdlistflag[i] = i;
+  }
+  for (i = 0;i < cmdlistlen;i ++){
+    cmdlistdis[i] = stringdistance(errorcmd, cmdlist[i]);
+  }
+  int j, k;
+  for (i = 0;i < cmdlistlen - 1;i ++){
+    for (j = 0;j < cmdlistlen - 1 - i;j ++)
+      if (cmdlistdis[j] > cmdlistdis[j + 1]){
+        k = cmdlistdis[j];
+        cmdlistdis[j] = cmdlistdis[j + 1];
+        cmdlistdis[j + 1] = k;
+        k = cmdlistflag[j];
+        cmdlistflag[j] = cmdlistflag[j + 1];
+        cmdlistflag[j + 1] = k;
+      }
+  }
+
+  int tempflag = 0;
+  for (i = 0;i < cmdlistlen;i ++){
+    if ((cmdlistdis[i] >= strlen(errorcmd)) || (cmdlistdis[i] >= strlen(cmdlist[cmdlistflag[i]]) + 1))
+      break;
+    tempflag = 1;
+    printf(1, "%s\n", cmdlist[cmdlistflag[i]]);
+  }
+  if (tempflag == 1)
+    printf(1, "%s\n", "Maybe you want to input these commands.");
+
 }
