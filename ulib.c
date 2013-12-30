@@ -109,12 +109,17 @@ stat(char *n, struct stat *st)
 int
 atoi(const char *s)
 {
+  int coefficient = 1;
+  if(s[0] == '-')
+  {
+    coefficient = -1;
+    s++;
+  }
   int n;
-
   n = 0;
   while('0' <= *s && *s <= '9')
     n = n*10 + *s++ - '0';
-  return n;
+  return n * coefficient;
 }
 
 void*
