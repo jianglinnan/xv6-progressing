@@ -637,7 +637,6 @@ void getExecutedCmd(){
   if(flag == 0){
     for(i = length; i < length + STATIC_CMD_LEN; i++){
       strcpy(ec.commands[i],staticCommands[i - length]);
-      printf(1,"%s\n",ec.commands[i]);
     }
     ec.len += STATIC_CMD_LEN;
   }
@@ -673,18 +672,18 @@ getcmdlist(char* path, int* listlen)
   struct stat st;
 
   char **cmdall;
-  cmdall = malloc(sizeof(char*)*30);
+  cmdall = malloc(sizeof(char*)*MAX_EXECMD);
   int i = 0;
   while(1){
-    cmdall[i] = malloc(sizeof(char)*30);
+    cmdall[i] = malloc(sizeof(char)*MAX_EXECMD);
     i ++;
-    if(i == 30)
+    if(i == MAX_EXECMD)
       break;
   }
 
   int cmdflag = 0;
-  for (i = 0;i < 30;i ++)
-    memset(cmdall[i], 0, 30);
+  for (i = 0;i < MAX_EXECMD;i ++)
+    memset(cmdall[i], 0, MAX_EXECMD);
   
   if((fd = open(path, 0)) < 0){
     printf(2, "getcmdlist: cannot open %s\n", path);
