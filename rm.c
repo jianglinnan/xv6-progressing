@@ -2,6 +2,7 @@
 #include "stat.h"
 #include "user.h"
 #include "fs.h"
+#include "defs_struct.h"
 
 char*
 fmtname(char* path)
@@ -32,18 +33,18 @@ getcmdlist(char* path, int* listlen)
   struct stat st;
 
   char **cmdall;
-  cmdall = malloc(sizeof(char*)*30);
+  cmdall = malloc(sizeof(char*)*MAX_EXECMD);
   int i = 0;
   while(1){
-    cmdall[i] = malloc(sizeof(char)*30);
+    cmdall[i] = malloc(sizeof(char)*MAX_EXECMD);
     i ++;
-    if(i == 30)
+    if(i == MAX_EXECMD)
       break;
   }
 
   int cmdflag = 0;
-  for (i = 0;i < 30;i ++)
-    memset(cmdall[i], 0, 30);
+  for (i = 0;i < MAX_EXECMD;i ++)
+    memset(cmdall[i], 0, MAX_EXECMD);
   
   if((fd = open(path, 0)) < 0){
     printf(2, "getcmdlist: cannot open %s\n", path);
@@ -144,28 +145,6 @@ main(int argc, char *argv[])
       printf(1, "rm: %s failed to delete\n", argv[i]);
       continue;
     }
-    /*
-    if(chdir(argv[i]) < 0){
-      if(unlink(argv[i]) < 0){
-        printf(2, "rm: %s failed to delete\n", argv[i]);
-        continue;
-      }
-      continue; 
-    }
-    cmd = getcmdlist(".",&len);
-    for(j = 0; j < len; j++){
-      if(unlink(cmd[j]) < 0){
-        printf(2, "rm: %s/%s failed to delete\n", argv[i],cmd[j]);
-        break;
-      } 
-    }
-    free(cmd);
-    chdir("../");
-    if(unlink(argv[i]) < 0){
-      printf(2, "rm: %s diretory failed to delete\n", argv[i]);
-      continue;
-    }*/
   }
-
   exit();
 }
