@@ -77,10 +77,10 @@ getcmdlist(char* path, int* listlen)
         printf(1, "getcmdlist: cannot stat %s\n", buf);
         continue;
       }
-      if(st.type == 2){
+      if(st.type == 1 || st.type == 2){
         strcpy(cmdall[cmdflag], fmtname(buf));
         int j = 0;
-        for (j = strlen(cmdall[cmdflag]) - 1;j >= 0;j --){
+        for (j = strlen(cmdall[cmdflag]) - 1;j >= 0; j--){
           if (cmdall[cmdflag][j] == ' ')
             cmdall[cmdflag][j] = 0;
           else
@@ -97,18 +97,54 @@ getcmdlist(char* path, int* listlen)
   return (char**)cmdall;
 }
 
+
+ 
+int recurRM(char* path){
+  int j,len;
+  char** cmd;
+  int result = 0;
+  if(chdir(path) < 0){
+      if(unlink(path) < 0){
+        printf(1, "rm: %s file failed to delete\n", path);
+        return -1;
+      }
+      return 0; 
+  }
+  cmd = getcmdlist(".",&len);
+  for(j = 0; j < len; j++){
+    if(strcmp(cmd[j],".") == 0 || strcmp(cmd[j],"..") == 0)
+      continue;
+    if(recurRM(cmd[j]) < 0){
+      printf(1, "rm: %s/%s failed to delete\n", path,cmd[j]);
+      result = -1;
+      continue;
+    } 
+  }
+  free(cmd);
+  chdir("../");
+  if(unlink(path) < 0){
+    printf(1, "rm: %s diretory failed to delete\n", path);
+    result = -1;
+  }
+  return result;
+}
+
 int
 main(int argc, char *argv[])
 {
-  int i,j;
-  int len;
-  char** cmd;
+  int i;
+  //char** cmd;
   if(argc < 2){
     printf(2, "Usage: rm files...\n");
     exit();
   }
 
   for(i = 1; i < argc; i++){
+    if(recurRM(argv[i]) < 0){
+      printf(1, "rm: %s failed to delete\n", argv[i]);
+      continue;
+    }
+    /*
     if(chdir(argv[i]) < 0){
       if(unlink(argv[i]) < 0){
         printf(2, "rm: %s failed to delete\n", argv[i]);
@@ -128,9 +164,8 @@ main(int argc, char *argv[])
     if(unlink(argv[i]) < 0){
       printf(2, "rm: %s diretory failed to delete\n", argv[i]);
       continue;
-    }
+    }*/
   }
 
   exit();
 }
- 

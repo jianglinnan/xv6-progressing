@@ -9,12 +9,9 @@ void
 cat(int fd,int dst)
 {
   int n;
-  while(1){
-    gets(buf,512);
-    if(strcmp(buf,"ESC\n") == 0)
-      exit();
-    write(dst, buf, strlen(buf));
-    memset(buf,0,512);
+  while((n = read(fd,buf,sizeof(buf))) > 0){
+    write(dst, buf, n);
+    memset(buf,0,sizeof(buf));
   }
 
   if(n < 0){
