@@ -1,14 +1,8 @@
-//#include "types.h"
-//#include "stat.h"
-//#include "user.h"
-//#include "fcntl.h"
-//#include "fs.h"
-#include <stdio.h>
-#include <sys/stat.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <fcntl.h>
+#include "types.h"
+#include "stat.h"
+#include "user.h"
+#include "fcntl.h"
+#include "fs.h"
 
 #define BUF_SIZE 256
 #define MAX_LINE_NUMBER 256
@@ -17,7 +11,7 @@
 #define MAX_FUNCTION_NUMBER 16
 #define MAX_NAME_LINGTH 16
 #define MAX_STACK_LENGTH 16
-//#define NULL 0
+#define NULL 0
 
 //支持的变量类型
 #define VOID 0
@@ -34,19 +28,12 @@ typedef struct
 	void *value;
 }Var;
 
-//顺序语句块
-typedef struct
-{
-	int start;
-	int end;
-	int current;
-}SeqBlock;
-
 //If语句块
 typedef struct
 {
 	int start;
 	int end;
+	int condition;
 }IfBlock;
 
 typedef struct
@@ -55,6 +42,7 @@ typedef struct
 	int if_end;
 	int else_start;
 	int else_end;
+	int condition;
 }IfElseBlock;
 
 //函数类型
@@ -114,7 +102,9 @@ void find_global_vars();
 void find_functions();
 int get_fun_finish(int start);
 int push_function(char *fun_str);
-int run_funciton();
+Var run_function();
+int run_line(int line_number);
+void get_string_from_var(char *var_name, char *result);
 void execute_text();
 void execute_line();
 void process_text();
@@ -125,14 +115,14 @@ int main(int argc, char *argv[])
 	if (argc < 2)
 	{
 		//printf(1, "please input the command as [script file]\n");
-		exit(0);
+		exit();
 	}
 	//读取文件
 	read_script(argv[1]);
 	//处理
 	process_text();
 	//退出程序
-	exit(0);
+	exit();
 }
 
 //拼接src的前n个字符到dest
@@ -289,7 +279,7 @@ void read_script(char *path)
 	if (fd == -1)
 	{
 		//printf(1, "can't open the file\n");
-		exit(0);
+		exit();
 	}
 	//读取内容
 	int line_number = 0;
@@ -540,7 +530,7 @@ void remove_duplicate_variables(Var *vars)
 	for (i = 0; i < count; i++)
 		for (j = 0; j < i; j++)
 			if (strcmp(vars[i].name, vars[j].name) == 0)
-				invalid[i] = 1;
+				invalid[j] = 1;
 	Var tmp[MAX_VARS_NUMBER];
 	memset(tmp, 0, sizeof(Var) * MAX_VARS_NUMBER);
 	int pos = 0;
@@ -735,7 +725,6 @@ int push_function(char *fun_str)
 	int param_number = split(param_name, ',', split_param);
 	for (i = 0; i < param_number; i++)
 	{
-		printf("**%s\n", split_param[i]);
 		int len = strlen(split_param[i]);
 		//整数
 		if (atoi(split_param[i]) != 0 || split_param[i][0] == '0')
@@ -783,7 +772,7 @@ int push_function(char *fun_str)
 		else
 		{
 			//未实现
-			printf("transfer variable not implement\n");
+			printf(1, "transfer variable not implement\n");
 		}
 	}
 	stack_frame_number++;
@@ -793,13 +782,97 @@ int push_function(char *fun_str)
 void execute_text()
 {
 	//初始化操作
-	push_function("main(0,'1',\"22\b2\")");
+	push_function("main()");
 	run_function();
 }
 
-void run_funciton()
+Var run_function()
 {
-	int start = 
+	int start = stack_frame[stack_frame_number - 1].current;
+	int end = stack_frame[stack_frame_number - 1].function.end - 1;
+	int i = start;
+	for (; i <= end; i++)
+	{
+		//run_line()一次处理了n行
+		int n = run_line(i);
+		i += (n-1);
+	}
+	Var return_val;
+	return return_val;
+}
+
+int run_line(int line_number)
+{
+	printf(1, "%s\n", text[line_number]);
+	//系统命令
+	if (strcmp_n(text[line_number], "system(", 7) == 0)
+	{
+		char com[MAX_LINE_LENGTH] = {};
+		char str[MAX_LINE_LENGTH] = {};
+		strcat_n(com, text[line_number] + 7, strlen(text[line_number])-8);
+		//双引号命令
+		if (com[0] == '\"')
+			get_string_value(com, str);
+		else
+			get_string_from_var(com, str);
+	}
+	//定义性语句
+	int local_vars_number = 0;
+	for (; stack_frame[stack_frame_number - 1].vars[local_vars_number].type != 0; local_vars_number++)
+		;
+	int number = find_vars_in_line(text[line_number], stack_frame[stack_frame_number - 1].vars + local_vars_number, stack_frame[stack_frame_number].function.name);
+	local_vars_number += number;
+	remove_duplicate_variables(stack_frame[stack_frame_number - 1].vars);
+	if (number > 0)
+		return 1;
+	//if逻辑块和if-else逻辑块
+	//for逻辑块
+	//不接收返回值的函数调用逻辑块
+	if(is_function(text[line_number]))
+	{
+		push_function(text[line_number]);
+		run_function();
+		return 1;
+	}
+	//赋值语句处理
+	return 1;
+}
+
+void get_string_from_var(char *var_name, char *result)
+{
+	int i = 0;
+	int exists = 0;
+	//局部变量中是否存在
+	for (; stack_frame[stack_frame_number - 1].vars[i].type != VOID; i++)
+	{
+		Var local = stack_frame[stack_frame_number].vars[i];
+		if (local.type == STRING && strcmp(local.name, var_name) == 0)
+		{
+			strcpy(result, (char *)local.value);
+			exists = 1;
+			break;
+		}
+	}
+	//全局变量中是否存在
+	if (exists == 0)
+	{
+		for (i = 0; i < global_vars_number; i++)
+		{
+			if (global_vars[i].type == STRING && strcmp(global_vars[i].name, var_name) == 0)
+			{
+				strcpy(result, (char *)global_vars[i].value);
+				exists = 1;
+				break;
+			}
+		}
+	}
+	//不存在该变量
+	if (exists == 0)
+	{
+		//printf(1, "can't find variable %s", com);
+		//exit();
+	}
+	return;
 }
 
 void process_text()
