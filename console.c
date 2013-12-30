@@ -18,6 +18,8 @@
 #include "defs_struct.h"
 #include "global_var.h"
 
+#define E0ESC           (1<<6)
+
 static void consputc(int);
 
 static int panicked = 0;
@@ -279,6 +281,18 @@ consoleintr(int (*getc)(void))
         consputc(BACKSPACE);
       }
       break;
+    case 27:
+      firstInput = 1;
+      input.w = input.e;
+      input.buf[input.e++ % INPUT_BUF] = 'E';
+      input.buf[input.e++ % INPUT_BUF] = 'S';
+      input.buf[input.e++ % INPUT_BUF] = 'C';
+      input.buf[input.e++ % INPUT_BUF] = '\n';   
+      input.w = input.e;
+      tab_loc = input.e;
+      wakeup(&input.r);
+      break;
+
     case '\t':
       initBlank();
       if(tab_loc == -1){
@@ -351,6 +365,7 @@ consoleintr(int (*getc)(void))
         c = (c == '\r') ? '\n' : c;
         //get input
         input.buf[input.e++ % INPUT_BUF] = c;
+        //cprintf("%d",c);
         consputc(c);
         if(c == ' '){
           blank_len++;
