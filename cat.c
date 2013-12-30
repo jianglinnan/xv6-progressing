@@ -24,8 +24,10 @@ int
 main(int argc, char *argv[])
 {
   int fd,fr,i;
+  setProgramStatus(CAT);
   if(argc <= 1){
     cat(0,1);
+    setProgramStatus(SHELL);
     exit();
   }
 
@@ -64,6 +66,7 @@ main(int argc, char *argv[])
       gets(buf,512);
       if(strcmp(buf,"/exit\n") == 0 || strcmp(buf,"ESC\n") == 0){
         close(fd);
+        setProgramStatus(SHELL);
         exit();
       }
       write(fd, buf, strlen(buf));
@@ -76,6 +79,7 @@ main(int argc, char *argv[])
     for(i = 1; i < loc; i++){
       if((fr = open(argv[i],O_RDONLY)) < 0){
         printf(1, "cat: cannot open %s\n", argv[i]);
+        setProgramStatus(SHELL);
         exit();
       }
       cat(fr,fd);
@@ -88,11 +92,13 @@ main(int argc, char *argv[])
     for(i = 1; i < argc; i++){
       if((fd = open(argv[i], 0)) < 0){
         printf(1, "cat: cannot open %s\n", argv[i]);
+        setProgramStatus(SHELL);
         exit();
       }
       cat(fd,1);
       close(fd);
     }   
   }
+  setProgramStatus(SHELL);
   exit();
 }
