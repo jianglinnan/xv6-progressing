@@ -35,6 +35,12 @@ sys_test(void)
   return ts->len;
 }
 
+int
+sys_setProgramStatus(){
+  argint(0,&program_status);
+  return 0;
+}
+
 //deal with the histories items from the user process 
 int
 sys_setHistory(void){

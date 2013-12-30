@@ -25,9 +25,11 @@ int auto_show = 1;
 
 int main(int argc, char *argv[])
 {
+	setProgramStatus(EDITOR);
 	if (argc == 1)
 	{
 		printf(1, "please input the command as [editor file_name]\n");
+		setProgramStatus(SHELL);
 		exit();
 	}
 	//存放文件内容
@@ -109,7 +111,7 @@ int main(int argc, char *argv[])
 			if (input[3] == '-')
 				com_ins(text, atoi(&input[4]), &input[pos]);
 			else
-				com_ins(text, line_number + 1, &input[pos]);
+				com_ins(text, line_number+1, &input[pos]);
 			//插入操作需要更新行号
 			line_number = get_line_number(text);
 		}
@@ -143,7 +145,7 @@ int main(int argc, char *argv[])
 		}
 		else if (strcmp(input, "help") == 0)
 			com_help(text);
-		else if (strcmp(input, "save") == 0)
+		else if (strcmp(input, "save") == 0 || strcmp(input, "CTRL+S\n") == 0)
 			com_save(text, argv[1]);
 		else if (strcmp(input, "exit") == 0)
 			com_exit(text, argv[1]);
@@ -153,6 +155,7 @@ int main(int argc, char *argv[])
 			com_help(text);
 		}
 	}
+	setProgramStatus(SHELL);
 	exit();
 }
 
@@ -226,7 +229,18 @@ void com_ins(char *text[], int n, char *extra)
 		}
 	}
 	if (text[n] == NULL)
+	{
 		text[n] = malloc(MAX_LINE_LENGTH);
+		if (text[n-1][0] == '\0')
+		{
+			memset(text[n], 0, MAX_LINE_LENGTH);
+			strcpy(text[n-1], input);
+			changed = 1;
+			if (auto_show == 1)
+				show_text(text);
+			return;
+		}
+	}
 	memset(text[n], 0, MAX_LINE_LENGTH);
 	strcpy(text[n], input);
 	changed = 1;
@@ -309,6 +323,7 @@ void com_save(char *text[], char *path)
 	if (fd == -1)
 	{
 		printf(1, "save failed, file can't open:\n");
+		setProgramStatus(SHELL);
 		exit();
 	}
 	if (text[0] == NULL)
@@ -350,5 +365,6 @@ void com_exit(char *text[], char *path)
 		text[i] = 0;
 	}
 	//退出
+	setProgramStatus(SHELL);
 	exit();
 }

@@ -167,6 +167,7 @@ main(void)
   setHistory(&hs);
   getExecutedCmd();
   setExeCmd(&ec);
+  setProgramStatus(SHELL);
   // Assumes three file descriptors open.
   while((fd = open("console", O_RDWR)) >= 0){
     if(fd >= 3){
