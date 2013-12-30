@@ -24,3 +24,4 @@
 #define SYS_test   22
 #define SYS_setHistory 23
 #define SYS_setExeCmd 24
+#define SYS_setProgramStatus 25 

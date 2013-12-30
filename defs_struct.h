@@ -13,8 +13,8 @@ struct HistoryStruct{
 	char history[H_ITEMS][H_LEN];
 };
 
-#define MAX_EXECMD 64
-#define EXECMD_LEN 128
+#define MAX_EXECMD 128
+#define EXECMD_LEN 64
 
 struct ExecutedCmd{
 	int len;

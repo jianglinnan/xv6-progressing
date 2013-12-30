@@ -1,16 +1,19 @@
 #include "types.h"
 #include "stat.h"
 #include "user.h"
+#include "fcntl.h"
 
 char buf[512];
 
 void
-cat(int fd)
+cat(int fd,int dst)
 {
   int n;
+  while((n = read(fd,buf,sizeof(buf))) > 0){
+    write(dst, buf, n);
+    memset(buf,0,sizeof(buf));
+  }
 
-  while((n = read(fd, buf, sizeof(buf))) > 0)
-    write(1, buf, n);
   if(n < 0){
     printf(1, "cat: read error\n");
     exit();
@@ -20,10 +23,11 @@ cat(int fd)
 int
 main(int argc, char *argv[])
 {
-  int fd, i;
-
+  int fd,fr,i;
+  setProgramStatus(CAT);
   if(argc <= 1){
-    cat(0);
+    cat(0,1);
+    setProgramStatus(SHELL);
     exit();
   }
 
@@ -44,21 +48,57 @@ main(int argc, char *argv[])
     }
   }
 
-  // 处理“-”为标准输入
+  int loc = 0;
   for(i = 1; i < argc; i++){
-    if(strcmp(argv[i], "-") == 0){
-      cat(0);
-      exit();
+    if(strcmp(argv[i], ">") == 0 && i + 2 == argc)
+    {
+      loc = i;
+      break;
+    }
+  }
+  if(strcmp(argv[1], "-") == 0 && argc == 3)
+    loc = 1;
+
+  if(loc == 1){
+    char buf[512];
+    fd = open(argv[2],O_CREATE|O_WRONLY);
+    while(1){
+      gets(buf,512);
+      if(strcmp(buf,"/exit\n") == 0 || strcmp(buf,"ESC\n") == 0){
+        close(fd);
+        setProgramStatus(SHELL);
+        exit();
+      }
+      write(fd, buf, strlen(buf));
+      memset(buf,0,512);
     }
   }
 
-  for(i = 1; i < argc; i++){
-    if((fd = open(argv[i], 0)) < 0){
-      printf(1, "cat: cannot open %s\n", argv[i]);
-      exit();
+  if(loc > 1){
+    fd = open(argv[argc-1],O_CREATE|O_WRONLY);
+    for(i = 1; i < loc; i++){
+      if((fr = open(argv[i],O_RDONLY)) < 0){
+        printf(1, "cat: cannot open %s\n", argv[i]);
+        setProgramStatus(SHELL);
+        exit();
+      }
+      cat(fr,fd);
+      close(fr);
     }
-    cat(fd);
     close(fd);
   }
+
+  else{
+    for(i = 1; i < argc; i++){
+      if((fd = open(argv[i], 0)) < 0){
+        printf(1, "cat: cannot open %s\n", argv[i]);
+        setProgramStatus(SHELL);
+        exit();
+      }
+      cat(fd,1);
+      close(fd);
+    }   
+  }
+  setProgramStatus(SHELL);
   exit();
 }

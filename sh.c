@@ -167,6 +167,7 @@ main(void)
   setHistory(&hs);
   getExecutedCmd();
   setExeCmd(&ec);
+  setProgramStatus(SHELL);
   // Assumes three file descriptors open.
   while((fd = open("console", O_RDWR)) >= 0){
     if(fd >= 3){
@@ -177,7 +178,8 @@ main(void)
 
   // Read and run input commands.
   while(getcmd(buf, sizeof(buf)) >= 0){
-
+    if(strcmp(buf,"ESC\n") == 0)
+      exit();
     if(buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' '){
       // Clumsy but will have to do for now.
       // Chdir has no effect on the parent if run in the child.
@@ -601,17 +603,46 @@ void getHistory(struct HistoryStruct* hs){
   return;
 }
 
+#define STATIC_CMD_LEN 12
+
 void getExecutedCmd(){
+
+  char staticCommands[STATIC_CMD_LEN][16] = {
+    "/ls",
+    "/mkdir",
+    "/cp",
+    "/mv",
+    "/rename",
+    "/rm",
+    "/cat",
+    "/history",
+    "/editor",
+    "/uptime",
+    "/help",
+    "/script"
+  };
+
   int length = 0;
+  int flag = 0;
   char** cmd = getcmdlist(".",&length);
   if(length >= MAX_EXECMD)
     length = MAX_EXECMD;
   int i = 0;
   ec.len = length;
   for(i = 0; i < length; i++){
+    if(strcmp(cmd[i],"ls") == 0){
+      flag = 1;
+    }
     strcpy(ec.commands[i],cmd[i]);
   }
+  if(flag == 0){
+    for(i = length; i < length + STATIC_CMD_LEN; i++){
+      strcpy(ec.commands[i],staticCommands[i - length]);
+    }
+    ec.len += STATIC_CMD_LEN;
+  }
 }
+
 
 char*
 fmtname(char* path)
@@ -642,18 +673,18 @@ getcmdlist(char* path, int* listlen)
   struct stat st;
 
   char **cmdall;
-  cmdall = malloc(sizeof(char*)*30);
+  cmdall = malloc(sizeof(char*)*MAX_EXECMD);
   int i = 0;
   while(1){
-    cmdall[i] = malloc(sizeof(char)*30);
+    cmdall[i] = malloc(sizeof(char)*MAX_EXECMD);
     i ++;
-    if(i == 30)
+    if(i == MAX_EXECMD)
       break;
   }
 
   int cmdflag = 0;
-  for (i = 0;i < 30;i ++)
-    memset(cmdall[i], 0, 30);
+  for (i = 0;i < MAX_EXECMD;i ++)
+    memset(cmdall[i], 0, MAX_EXECMD);
   
   if((fd = open(path, 0)) < 0){
     printf(2, "getcmdlist: cannot open %s\n", path);
@@ -724,36 +755,31 @@ stringdistance(char* s1, char* s2)
   int len2 = (int)strlen(s2);
 
   int **dp;
-  dp = malloc(sizeof(int*)*(len1 + 1));
+  dp = malloc(sizeof(int*)*len1);
   int i = 0;
-  for (i = 0;i <= len1;i ++){
-    dp[i] = malloc(sizeof(int)*(len2 + 1));
+  for (i = 0;i < len1;i ++){
+    dp[i] = malloc(sizeof(int)*len2);
   }
-  for (i = 0;i <= len1;i ++){
+  for (i = 0;i < len1;i ++){
     dp[i][0] = i;
   }
-  for (i = 0;i <= len2;i ++){
+  for (i = 0;i < len2;i ++){
     dp[0][i] = i;
   }
 
   dp[0][0] = 0;
 
-  //printf(1, "%s\n", s1);
-  //printf(1, "%s\n", s2);
   int j = 0;
-  for (i = 1;i <= len1;i ++){
-    for (j = 1;j <= len2;j ++){
+  for (i = 1;i < len1;i ++){
+    for (j = 1;j < len2;j ++){
       if (s1[i - 1] == s2[j - 1])
         dp[i][j] = dp[i - 1][j - 1];
       else
         dp[i][j] = threeintmin(dp[i][j - 1], dp[i - 1][j], dp[i - 1][j - 1]) + 1;
-      //printf(1, "%d ", dp[i][j]);
     }
-    //printf(1, "\n");
   }
-  //printf(1, "\n");
 
-  int ans = dp[len1][len2];
+  int ans = dp[len1 - 1][len2 - 1];
   free(dp);
   return ans;
 }
@@ -788,14 +814,10 @@ fixcmd(char *errorcmd)
       }
   }
 
-  int tempflag = 0;
-  for (i = 0;i < cmdlistlen;i ++){
-    if ((cmdlistdis[i] >= strlen(errorcmd)) || (cmdlistdis[i] >= strlen(cmdlist[cmdlistflag[i]]) + 1))
-      break;
-    tempflag = 1;
+  printf(1, "%s\n", "Your cmd is illegal!");
+  printf(1, "%s\n", "Maybe you want to input these commands...");
+  for (i = 0;i < 4;i ++){
     printf(1, "%s\n", cmdlist[cmdlistflag[i]]);
   }
-  if (tempflag == 1)
-    printf(1, "%s\n", "Maybe you want to input these commands.");
 
 }

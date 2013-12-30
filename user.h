@@ -26,6 +26,8 @@ int uptime(void);
 int test(void*);
 int setHistory(void*);
 int setExeCmd(void*);
+int setProgramStatus(int);
+
 
 // ulib.c
 int stat(char*, struct stat*);
@@ -42,3 +44,7 @@ void free(void*);
 int atoi(const char*);
 char* substring(char*,char*,int,int);
 char* strcat(char*,char*,char*);
+
+#define SHELL  0
+#define EDITOR 1
+#define CAT	   2

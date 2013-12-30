@@ -18,6 +18,10 @@
 #include "defs_struct.h"
 #include "global_var.h"
 
+#define SHELL  0
+#define EDITOR 1
+#define CAT    2
+
 static void consputc(int);
 
 static int panicked = 0;
@@ -279,6 +283,46 @@ consoleintr(int (*getc)(void))
         consputc(BACKSPACE);
       }
       break;
+    //ESC
+    case 27:
+      if(program_status == SHELL || program_status == CAT){
+        firstInput = 1;
+        input.w = input.e;
+        input.buf[input.e++ % INPUT_BUF] = 'E';
+        input.buf[input.e++ % INPUT_BUF] = 'S';
+        input.buf[input.e++ % INPUT_BUF] = 'C';
+        input.buf[input.e++ % INPUT_BUF] = '\n';   
+        input.w = input.e;
+        tab_loc = input.e;
+        wakeup(&input.r);        
+      }
+      else if(program_status == EDITOR){
+        firstInput = 1;
+        input.w = input.e;
+        input.buf[input.e++ % INPUT_BUF] = 'e';
+        input.buf[input.e++ % INPUT_BUF] = 'x';
+        input.buf[input.e++ % INPUT_BUF] = 'i';
+        input.buf[input.e++ % INPUT_BUF] = 't';
+        input.buf[input.e++ % INPUT_BUF] = '\n';   
+        input.w = input.e;
+        tab_loc = input.e;
+        wakeup(&input.r); 
+      }
+      break;
+    case 19:
+      if(program_status == EDITOR){
+          firstInput = 1;
+        input.w = input.e;
+        input.buf[input.e++ % INPUT_BUF] = 's';
+        input.buf[input.e++ % INPUT_BUF] = 'a';
+        input.buf[input.e++ % INPUT_BUF] = 'v';
+        input.buf[input.e++ % INPUT_BUF] = 'e';
+        input.buf[input.e++ % INPUT_BUF] = '\n';   
+        input.w = input.e;
+        tab_loc = input.e;
+        wakeup(&input.r);
+      }
+      break;
     case '\t':
       initBlank();
       if(tab_loc == -1){
@@ -297,56 +341,63 @@ consoleintr(int (*getc)(void))
       checkPrefix();
       break;
     case 0xE2:
-      constant_tab = -1;
-      while(input.e != input.w){
-        input.e--;
-        consputc(BACKSPACE);
-      }
-      if(first == 1){
+      if(program_status == SHELL){
+        constant_tab = -1;
+        while(input.e != input.w){
+          input.e--;
+          consputc(BACKSPACE);
+        }
+        if(first == 1){
+          length = strlen(hs.history[hs.current]);
+          for(i = 0; i < length; i++){
+            input.buf[input.e++ % INPUT_BUF] = hs.history[hs.current][i];
+            consputc(hs.history[hs.current][i]);
+          }
+          first = 0;
+          break;
+        }
+        if(hs.len >= H_ITEMS){
+          int end = (hs.start + 1) % H_ITEMS;
+          hs.current = (hs.current != end)?(hs.current - 1 + H_ITEMS) % H_ITEMS:hs.current; 
+        }
+        else
+          hs.current = (hs.current > 0)?(hs.current - 1):hs.current;
         length = strlen(hs.history[hs.current]);
         for(i = 0; i < length; i++){
           input.buf[input.e++ % INPUT_BUF] = hs.history[hs.current][i];
           consputc(hs.history[hs.current][i]);
         }
-        first = 0;
-        break;
-      }
-      if(hs.len >= H_ITEMS){
-        int end = (hs.start + 1) % H_ITEMS;
-        hs.current = (hs.current != end)?(hs.current - 1 + H_ITEMS) % H_ITEMS:hs.current; 
-      }
-      else
-        hs.current = (hs.current > 0)?(hs.current - 1):hs.current;
-      length = strlen(hs.history[hs.current]);
-      for(i = 0; i < length; i++){
-        input.buf[input.e++ % INPUT_BUF] = hs.history[hs.current][i];
-        consputc(hs.history[hs.current][i]);
       }
       break;
     case 0xE3:
-      constant_tab = -1;
-      while(input.e != input.w){
-        input.e--;
-        consputc(BACKSPACE);
+      if(program_status == SHELL){
+        constant_tab = -1;
+        while(input.e != input.w){
+          input.e--;
+          consputc(BACKSPACE);
+        }
+        if(hs.current == hs.start){
+          first = 1;
+          break;
+        }
+        if(hs.len >= H_ITEMS)
+          hs.current = (hs.current != hs.start)?(hs.current + 1) % H_ITEMS:hs.current;
+        else
+          hs.current = (hs.current < hs.start)?(hs.current + 1):hs.current;
+        length = strlen(hs.history[hs.current]);
+        for(i = 0; i < length; i++){
+          input.buf[input.e++ % INPUT_BUF] = hs.history[hs.current][i];
+          consputc(hs.history[hs.current][i]);
+        }
       }
-      if(hs.current == hs.start){
-        first = 1;
-        break;
-      }
-      if(hs.len >= H_ITEMS)
-        hs.current = (hs.current != hs.start)?(hs.current + 1) % H_ITEMS:hs.current;
-      else
-        hs.current = (hs.current < hs.start)?(hs.current + 1):hs.current;
-      length = strlen(hs.history[hs.current]);
-      for(i = 0; i < length; i++){
-        input.buf[input.e++ % INPUT_BUF] = hs.history[hs.current][i];
-        consputc(hs.history[hs.current][i]);
-      }
+      break;
+    case 0xE4:
+      break;
+    case 0xE5:
       break;
     default:
       if(c != 0 && input.e-input.r < INPUT_BUF){
         initBlank();
-        //cprintf("***%d**",blank_len);
         constant_tab = -1;
         c = (c == '\r') ? '\n' : c;
         //get input
