@@ -190,6 +190,22 @@ struct{
   uint e;  // Edit index
 } input;
 int tab_loc = -1;
+int constant_tab = -1;
+int last_tab_loc = -1;
+
+int last_blank_loc = 0;
+int blanks[32];
+int blank_len = 0;
+int firstInput = 1;
+
+void initBlank(){
+  if(firstInput == 1){
+    firstInput = 0;
+    blank_len = 1;
+    memset(&blanks,0,32);
+    blanks[0] = input.w;
+  }
+}
 
 
 void checkPrefix(){
@@ -203,24 +219,28 @@ void checkPrefix(){
 
   //if we have found the unique prefix
   int flag = 0;
-  int index = -1;
+  constant_tab++;
   int bufLen = strlen(buffer); 
-  for(i = 0; i < ec.len; i++){
-    if(flag == 1 && strncmp(buffer,ec.commands[i],bufLen) == 0){
-      flag = 2;
-      return;
-    }
-    else if(flag == 0 && strncmp(buffer,ec.commands[i],bufLen) == 0){
-      index = i;
+  for(i = constant_tab; i < ec.len; i++){
+    if(strncmp(buffer,ec.commands[i],bufLen) == 0){
       flag = 1;
+      constant_tab = i;
+      break;
     }
   }
-  if(index == -1 || flag == 2)
-    return;
-  int cmdLen = strlen(ec.commands[index]);
+  if(flag == 0){
+    if(constant_tab == 0)
+        return;  
+    else{
+        constant_tab = -1;
+        checkPrefix();
+        return;
+    }
+  }
+  int cmdLen = strlen(ec.commands[constant_tab]);
   for(i = bufLen; i < cmdLen; i++){
-    input.buf[input.e++ % INPUT_BUF] = ec.commands[index][i];
-    consputc(ec.commands[index][i]);
+    input.buf[input.e++ % INPUT_BUF] = ec.commands[constant_tab][i];
+    consputc(ec.commands[constant_tab][i]);
   }
 }
 
@@ -246,18 +266,38 @@ consoleintr(int (*getc)(void))
       }
       break;
     case C('H'): case '\x7f':  // Backspace
+      constant_tab = -1;
       if(input.e != input.w){
+        if(input.e == blanks[blank_len-1]){
+          blanks[blank_len - 1] = 0;
+          blank_len--;
+          //cprintf("***%d***",tab_loc);
+          tab_loc = blanks[blank_len-1];
+          //cprintf("***%d***",tab_loc);
+        }
         input.e--;
-        //tab_loc = input.e;
         consputc(BACKSPACE);
       }
       break;
     case '\t':
-      if(tab_loc == -1)
-        tab_loc = input.w;
+      initBlank();
+      if(tab_loc == -1){
+        tab_loc = input.w; 
+        last_tab_loc = 0;      
+      }
+      if(constant_tab != -1){
+        while(input.e != last_tab_loc){
+          input.e--;
+          consputc(BACKSPACE);
+        }
+      }
+      else
+        last_tab_loc = input.e;
+
       checkPrefix();
       break;
     case 0xE2:
+      constant_tab = -1;
       while(input.e != input.w){
         input.e--;
         consputc(BACKSPACE);
@@ -284,6 +324,7 @@ consoleintr(int (*getc)(void))
       }
       break;
     case 0xE3:
+      constant_tab = -1;
       while(input.e != input.w){
         input.e--;
         consputc(BACKSPACE);
@@ -304,13 +345,21 @@ consoleintr(int (*getc)(void))
       break;
     default:
       if(c != 0 && input.e-input.r < INPUT_BUF){
+        initBlank();
+        //cprintf("***%d**",blank_len);
+        constant_tab = -1;
         c = (c == '\r') ? '\n' : c;
         //get input
         input.buf[input.e++ % INPUT_BUF] = c;
         consputc(c);
-        if(c == ' ')
+        if(c == ' '){
+          blank_len++;
+          blanks[blank_len-1] = input.e;
           tab_loc = input.e;
+          //cprintf("***%d**",blank_len);
+        }
         if(c == '\n' || c == C('D') || input.e == input.r+INPUT_BUF){
+          firstInput = 1;
           input.w = input.e;
           tab_loc = input.e;
           wakeup(&input.r);
@@ -321,6 +370,7 @@ consoleintr(int (*getc)(void))
   }
   release(&input.lock);
 }
+
 
 int
 consoleread(struct inode *ip, char *dst, int n)
