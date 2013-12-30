@@ -603,7 +603,7 @@ void getHistory(struct HistoryStruct* hs){
   return;
 }
 
-#define STATIC_CMD_LEN 12
+#define STATIC_CMD_LEN 14
 
 void getExecutedCmd(){
 
@@ -619,7 +619,9 @@ void getExecutedCmd(){
     "/editor",
     "/uptime",
     "/help",
-    "/script"
+    "/script",
+    "/touch",
+    "/make"
   };
 
   int length = 0;
