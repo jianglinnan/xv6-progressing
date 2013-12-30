@@ -8,7 +8,7 @@ int main(int argc, char *argv[])
 	//判断参数
 	if (argc == 1 || argc == 2)
 	{
-		printf(1, "please input the command as [cp src_file dest_file]\n");
+		printf(1, "please input the command as [rename src_file dest_file]\n");
 		exit();
 	}
 	int result = link(argv[1], argv[2]);
