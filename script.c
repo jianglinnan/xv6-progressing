@@ -24,7 +24,7 @@ typedef struct
 {
 	int type;
 	char name[MAX_NAME_LINGTH];
-	char scope[MAX_NAME_LINGTH];
+	//char scope[MAX_NAME_LINGTH];
 	void *value;
 }Var;
 
@@ -102,11 +102,16 @@ void find_global_vars();
 void find_functions();
 int get_fun_finish(int start);
 int push_function(char *fun_str);
-Var run_function();
-int run_line(int line_number);
-void get_string_from_var(char *var_name, char *result);
 void execute_text();
-void execute_line();
+Var run_function();
+int run_line(int line_number, int *return_flag, Var *return_var);
+void convert_inc_dec(char *part);
+Var get_var(char *part);
+void set_var(char *var_name, Var *var);
+Var run_expression(char *expression);
+Var calculate(char *expression, char kind);
+void itoa(char *s, int n);
+void run_command(char* cmd);
 void process_text();
 
 int main(int argc, char *argv[])
@@ -432,7 +437,6 @@ int find_vars_in_line(char *line, Var *vars, char *scope)
 			{
 				vars[count].type = INT;
 				strcpy(vars[count].name, split_expression[0]);
-				strcpy(vars[count].scope, scope);
 				vars[count].value = malloc(sizeof(int));
 				*(int *)(vars[count].value) = 0;
 				count++;
@@ -441,7 +445,6 @@ int find_vars_in_line(char *line, Var *vars, char *scope)
 			{
 				vars[count].type = INT;
 				strcpy(vars[count].name, split_expression[0]);
-				strcpy(vars[count].scope, scope);
 				vars[count].value = malloc(sizeof(int));
 				*(int *)(vars[count].value) = atoi(split_expression[1]);
 				count++;
@@ -464,7 +467,6 @@ int find_vars_in_line(char *line, Var *vars, char *scope)
 			{
 				vars[count].type = CHAR;
 				strcpy(vars[count].name, split_expression[0]);
-				strcpy(vars[count].scope, scope);
 				vars[count].value = malloc(sizeof(char));
 				*(char *)(vars[count].value) = '\0';
 				count++;
@@ -473,7 +475,6 @@ int find_vars_in_line(char *line, Var *vars, char *scope)
 			{
 				vars[count].type = CHAR;
 				strcpy(vars[count].name, split_expression[0]);
-				strcpy(vars[count].scope, scope);
 				vars[count].value = malloc(sizeof(char));
 				*(char *)(vars[count].value) = get_char_value(split_expression[1]);
 				count++;
@@ -496,7 +497,6 @@ int find_vars_in_line(char *line, Var *vars, char *scope)
 			{
 				vars[count].type = STRING;
 				strcpy(vars[count].name, split_expression[0]);
-				strcpy(vars[count].scope, scope);
 				vars[count].value = malloc(MAX_LINE_LENGTH);
 				memset(vars[count].value, 0, MAX_LINE_LENGTH);
 				count++;
@@ -505,7 +505,6 @@ int find_vars_in_line(char *line, Var *vars, char *scope)
 			{
 				vars[count].type = STRING;
 				strcpy(vars[count].name, split_expression[0]);
-				strcpy(vars[count].scope, scope);
 				vars[count].value = malloc(MAX_LINE_LENGTH);
 				memset(vars[count].value, 0, MAX_LINE_LENGTH);
 				get_string_value(split_expression[1], vars[count].value);
@@ -540,7 +539,6 @@ void remove_duplicate_variables(Var *vars)
 		{
 			tmp[pos].type = vars[i].type;
 			strcpy(tmp[pos].name, vars[i].name);
-			strcpy(tmp[pos].scope, vars[i].scope);
 			tmp[pos].value = vars[i].value;
 			pos++;
 		}
@@ -550,7 +548,6 @@ void remove_duplicate_variables(Var *vars)
 	{
 		vars[i].type = tmp[i].type;
 		strcpy(vars[i].name, tmp[i].name);
-		strcpy(vars[i].scope, tmp[i].scope);
 		vars[i].value = tmp[i].value;
 	}
 }
@@ -565,7 +562,7 @@ void find_global_vars()
 		for (j = fun_list[i].start; j <= fun_list[i].end; j++)
 			in_fun[j] = 1;
 	//加入全局变量
-	for (i = 0; text[i] != 0; i++)
+	for (i = 0; text[i] != NULL; i++)
 	{
 		if (in_fun[i] == 1)
 			continue;
@@ -585,10 +582,10 @@ void find_functions()
 		if (strcmp_n(text[i], "int ", 4) == 0 && is_function(text[i]+4))
 		{
 			int j = 4;
-			for (; text[i][j] != '('; j++)
+			for (; text[i][j] != '(' && text[i][j] != '\0'; j++)
 				;
 			pos1 = j;
-			for (j = pos1+1; text[i][j] != ')'; j++)
+			for (j = pos1+1; text[i][j] != ')' && text[i][j] != '\0'; j++)
 				;
 			pos2 = j;
 			//设定函数名字
@@ -600,10 +597,10 @@ void find_functions()
 		if (strcmp_n(text[i], "char ", 5) == 0 && is_function(text[i]+5))
 		{
 			int j = 5;
-			for (; text[i][j] != '('; j++)
+			for (; text[i][j] != '(' && text[i][j] != '\0'; j++)
 				;
 			pos1 = j;
-			for (j = pos1+1; text[i][j] != ')'; j++)
+			for (j = pos1+1; text[i][j] != ')' && text[i][j] != '\0'; j++)
 				;
 			pos2 = j;
 			//设定函数名字
@@ -614,10 +611,10 @@ void find_functions()
 		if (strcmp_n(text[i], "string ", 7) == 0 && is_function(text[i]+7))
 		{
 			int j = 7;
-			for (; text[i][j] != '('; j++)
+			for (; text[i][j] != '(' && text[i][j] != '\0'; j++)
 				;
 			pos1 = j;
-			for (j = pos1+1; text[i][j] != ')'; j++)
+			for (j = pos1+1; text[i][j] != ')' && text[i][j] != '\0'; j++)
 				;
 			pos2 = j;
 			//设定函数名字
@@ -628,10 +625,10 @@ void find_functions()
 		if (strcmp_n(text[i], "void ", 5) == 0 && is_function(text[i]+5))
 		{
 			int j = 5;
-			for (; text[i][j] != '('; j++)
+			for (; text[i][j] != '(' && text[i][j] != '\0'; j++)
 				;
 			pos1 = j;
-			for (j = pos1+1; text[i][j] != ')'; j++)
+			for (j = pos1+1; text[i][j] != ')' && text[i][j] != '\0'; j++)
 				;
 			pos2 = j;
 			//设定函数名字
@@ -736,7 +733,6 @@ int push_function(char *fun_str)
 			}
 			stack_frame[stack_frame_number].vars[i].type = INT;
 			strcpy(stack_frame[stack_frame_number].vars[i].name, stack_frame[stack_frame_number].function.param_name[i]);
-			strcpy(stack_frame[stack_frame_number].vars[i].scope, stack_frame[stack_frame_number].function.name);
 			stack_frame[stack_frame_number].vars[i].value = malloc(sizeof(int));
 			*(int *)stack_frame[stack_frame_number].vars[i].value = atoi(split_param[i]);
 		}
@@ -750,7 +746,6 @@ int push_function(char *fun_str)
 			}
 			stack_frame[stack_frame_number].vars[i].type = CHAR;
 			strcpy(stack_frame[stack_frame_number].vars[i].name, stack_frame[stack_frame_number].function.param_name[i]);
-			strcpy(stack_frame[stack_frame_number].vars[i].scope, stack_frame[stack_frame_number].function.name);
 			stack_frame[stack_frame_number].vars[i].value = malloc(sizeof(char));
 			*(char *)stack_frame[stack_frame_number].vars[i].value = get_char_value(split_param[i]);
 		}
@@ -764,18 +759,49 @@ int push_function(char *fun_str)
 			}
 			stack_frame[stack_frame_number].vars[i].type = STRING;
 			strcpy(stack_frame[stack_frame_number].vars[i].name, stack_frame[stack_frame_number].function.param_name[i]);
-			strcpy(stack_frame[stack_frame_number].vars[i].scope, stack_frame[stack_frame_number].function.name);
 			stack_frame[stack_frame_number].vars[i].value = malloc(sizeof(char) * MAX_LINE_LENGTH);
+			memset(stack_frame[stack_frame_number].vars[i].value, 0, sizeof(char) * MAX_LINE_LENGTH);
 			get_string_value(split_param[i], stack_frame[stack_frame_number].vars[i].value);
 		}
 		//变量
 		else
 		{
-			//未实现
-			printf(1, "transfer variable not implement\n");
+			Var tmp_var = get_var(split_param[i]);
+			//判断文件是否存在
+			if (tmp_var.type == 0)
+			{
+				//printf(1, "can't find variable %s", split_param[i]);
+				//exit();
+			}
+			//判断类型是否匹配
+			if (stack_frame[stack_frame_number].function.param_type[i] != tmp_var.type)
+			{
+				//printf(1, "parameter type error\n");
+				//exit();
+			}
+			//赋值
+			stack_frame[stack_frame_number].vars[i].type = tmp_var.type;
+			strcpy(stack_frame[stack_frame_number].vars[i].name, stack_frame[stack_frame_number].function.param_name[i]);
+			if (tmp_var.type == INT)
+			{
+				stack_frame[stack_frame_number].vars[i].value = malloc(sizeof(int));
+				*(int *)(stack_frame[stack_frame_number].vars[i].value) = *(int *)(tmp_var.value);
+			}
+			if (tmp_var.type == CHAR)
+			{
+				stack_frame[stack_frame_number].vars[i].value = malloc(sizeof(char));
+				*(char *)(stack_frame[stack_frame_number].vars[i].value) = *(char *)(tmp_var.value);
+			}
+			if (tmp_var.type == STRING)
+			{
+				stack_frame[stack_frame_number].vars[i].value = malloc(sizeof(char) * MAX_LINE_LENGTH);
+				memset(stack_frame[stack_frame_number].vars[i].value, 0, sizeof(char) * MAX_LINE_LENGTH);
+				strcpy((char *)stack_frame[stack_frame_number].vars[i].value, (char *)tmp_var.value);
+			}
 		}
 	}
 	stack_frame_number++;
+	free_split(split_param);
 	return stack_frame[stack_frame_number - 1].current;
 }
 
@@ -791,34 +817,93 @@ Var run_function()
 	int start = stack_frame[stack_frame_number - 1].current;
 	int end = stack_frame[stack_frame_number - 1].function.end - 1;
 	int i = start;
+	int return_flag = 0;
+	Var return_var;
 	for (; i <= end; i++)
 	{
 		//run_line()一次处理了n行
-		int n = run_line(i);
+		int n = run_line(i, &return_flag, &return_var);
 		i += (n-1);
+		if (return_flag == 1)
+		{
+			if (return_var.type != stack_frame[stack_frame_number - 1].function.return_type)
+			{
+				//printf(1, "return type error\n");
+				//exit();
+			}
+			//清除变量
+			int j = 0;
+			for (; stack_frame[stack_frame_number - 1].vars[j].value != NULL; j++)
+				free(stack_frame[stack_frame_number - 1].vars[j].value);
+			memset(&stack_frame[stack_frame_number - 1], 0, sizeof(Frame));
+			stack_frame_number--;
+			return return_var;
+		}
 	}
-	Var return_val;
-	return return_val;
+	/*
+	for (i = 0; stack_frame[stack_frame_number - 1].vars[i].type != VOID; i++)
+	{
+		Var tmp = stack_frame[stack_frame_number - 1].vars[i];
+		printf("name=%s,", tmp.name);
+		if (tmp.type == INT)
+			printf("value=%d\n", *(int *)tmp.value);
+		if (tmp.type == CHAR)
+			printf("value=%c\n", *(char *)tmp.value);
+		if (tmp.type == STRING)
+			printf("value=%s\n", (char *)tmp.value);
+	}
+	printf("**********\n");
+	*/
+	//清除变量
+	if (return_var.type != stack_frame[stack_frame_number - 1].function.return_type)
+	{
+		//printf(1, "return type error\n");
+		//exit();
+	}
+	for (i = 0; stack_frame[stack_frame_number - 1].vars[i].value != NULL; i++)
+		free(stack_frame[stack_frame_number - 1].vars[i].value);
+	memset(&stack_frame[stack_frame_number - 1], 0, sizeof(Frame));
+	stack_frame_number--;
+	return return_var;
 }
 
-int run_line(int line_number)
+int run_line(int line_number, int *return_flag, Var *return_var)
 {
-	printf(1, "%s\n", text[line_number]);
+	//空语句
+	if (text[line_number][0] == '\0')
+		return 1;
+	//return语句
+	if (strcmp_n(text[line_number], "return", 6) == 0)
+	{
+		*return_flag = 1;
+		*(return_var) = get_var(text[line_number] + 7);
+		return 1;
+	}
 	//系统命令
 	if (strcmp_n(text[line_number], "system(", 7) == 0)
 	{
 		char com[MAX_LINE_LENGTH] = {};
-		char str[MAX_LINE_LENGTH] = {};
+		char param[MAX_LINE_LENGTH] = {};
 		strcat_n(com, text[line_number] + 7, strlen(text[line_number])-8);
 		//双引号命令
 		if (com[0] == '\"')
-			get_string_value(com, str);
+			get_string_value(com, param);
 		else
-			get_string_from_var(com, str);
+		{
+			Var tmp = get_var(com);
+			if (tmp.type != STRING)
+			{
+				//printf(1, "parameter type error\n");
+				//exit();
+			}
+			strcpy(param, (char *)tmp.value);
+		}
+		run_command(param);
+		return 1;
 	}
 	//定义性语句
 	int local_vars_number = 0;
-	for (; stack_frame[stack_frame_number - 1].vars[local_vars_number].type != 0; local_vars_number++)
+	for (; stack_frame[stack_frame_number - 1].vars[local_vars_number].type != VOID; local_vars_number++)
 		;
 	int number = find_vars_in_line(text[line_number], stack_frame[stack_frame_number - 1].vars + local_vars_number, stack_frame[stack_frame_number].function.name);
 	local_vars_number += number;
@@ -827,29 +912,296 @@ int run_line(int line_number)
 		return 1;
 	//if逻辑块和if-else逻辑块
 	//for逻辑块
-	//不接收返回值的函数调用逻辑块
-	if(is_function(text[line_number]))
+	//++语句和--语句
+	convert_inc_dec(text[line_number]);
+	//赋值语句
+	char *split_equal[MAX_VARS_NUMBER] = {};
+	number = split(text[line_number], '=', split_equal);
+	if (number != 2)
 	{
-		push_function(text[line_number]);
-		run_function();
-		return 1;
+		//不接收返回值的函数调用逻辑块
+		if(is_function(text[line_number]))
+		{
+			push_function(text[line_number]);
+			run_function();
+			return 1;
+		}
+		else
+		{
+			//printf(1, "unknown line: %s\n", text[line_number]);
+			//exit();
+		}
 	}
-	//赋值语句处理
+	Var right_val = run_expression(split_equal[1]);
+	set_var(split_equal[0], &right_val);
+	free_split(split_equal);
 	return 1;
 }
 
-void get_string_from_var(char *var_name, char *result)
+Var calculate(char *expression, char kind)
+{
+	Var result;
+	char *split_exp[MAX_VARS_NUMBER] = {};
+	split(expression, kind, split_exp);
+	Var left = get_var(split_exp[0]);
+	Var right = get_var(split_exp[1]);
+	if (left.type == INT && right.type == INT && kind == '+')
+	{
+		result.type = INT;
+		result.value = malloc(sizeof(int));
+		*(int *)result.value = *(int *)left.value + *(int *)right.value;
+	}
+	else if (left.type == INT && right.type == CHAR && kind == '+')
+	{
+		result.type = INT;
+		result.value = malloc(sizeof(int));
+		*(int *)result.value = *(int *)left.value + *(char *)right.value;
+	}
+	else if (left.type == INT && right.type == STRING && kind == '+')
+	{
+		result.type = STRING;
+		char tmp[MAX_LINE_LENGTH] = {};
+		itoa(tmp, *(int *)left.value);
+		strcat_n(tmp, (char *)right.value, strlen((char *)right.value));
+		result.value = malloc(sizeof(char) * MAX_LINE_LENGTH);
+		memset(result.value, 0, sizeof(char) * MAX_LINE_LENGTH);
+		strcpy((char *)result.value, tmp);
+	}
+	else if (left.type == CHAR && right.type == INT && kind == '+')
+	{
+		result.type = INT;
+		result.value = malloc(sizeof(int));
+		*(int *)result.value = *(char *)left.value + *(int *)right.value;
+	}
+	else if (left.type == CHAR && right.type == CHAR && kind == '+')
+	{
+		result.type = CHAR;
+		result.value = malloc(sizeof(char));
+		*(char *)result.value = *(char *)left.value + *(char *)right.value;
+	}
+	else if (left.type == CHAR && right.type == STRING && kind == '+')
+	{
+		result.type = STRING;
+		char tmp[MAX_LINE_LENGTH] = {};
+		tmp[0] = *(char *)left.value;
+		strcat_n(tmp, (char *)right.value, strlen((char *)right.value));
+		result.value = malloc(sizeof(char) * MAX_LINE_LENGTH);
+		memset(result.value, 0, sizeof(char) * MAX_LINE_LENGTH);
+		strcpy((char *)result.value, tmp);
+	}
+	else if (left.type == STRING && right.type == INT && kind == '+')
+	{
+		result.type = STRING;
+		result.value = malloc(sizeof(char) * MAX_LINE_LENGTH);
+		memset(result.value, 0, sizeof(char) * MAX_LINE_LENGTH);
+		strcpy((char *)result.value, (char *)left.value);
+		char tmp[MAX_LINE_LENGTH] = {};
+		itoa(tmp, *(int *)right.value);
+		strcat_n((char *)result.value, tmp, strlen(tmp));
+	}
+	else if (left.type == STRING && right.type == CHAR && kind == '+')
+	{
+		result.type = STRING;
+		result.value = malloc(sizeof(char) * MAX_LINE_LENGTH);
+		memset(result.value, 0, sizeof(char) * MAX_LINE_LENGTH);
+		strcpy((char *)result.value, (char *)left.value);
+		char tmp[2] = {};
+		tmp[0] = *(char *)right.value;
+		strcat_n((char *)result.value, tmp, strlen(tmp));
+	}
+	else if (left.type == STRING && right.type == STRING && kind == '+')
+	{
+		result.type = STRING;
+		result.value = malloc(sizeof(char) * MAX_LINE_LENGTH);
+		memset(result.value, 0, sizeof(char) * MAX_LINE_LENGTH);
+		strcpy((char *)result.value, (char *)left.value);
+		strcat_n((char *)result.value, (char *)right.value, strlen((char *)right.value));
+	}
+	else if (left.type == INT && right.type == INT && kind == '-')
+	{
+		result.type = INT;
+		result.value = malloc(sizeof(int));
+		*(int *)result.value = *(int *)left.value - *(int *)right.value;
+	}
+	else if (left.type == INT && right.type == CHAR && kind == '-')
+	{
+		result.type = INT;
+		result.value = malloc(sizeof(int));
+		*(int *)result.value = *(int *)left.value - *(char *)right.value;
+	}
+	else if (left.type == CHAR && right.type == INT && kind == '-')
+	{
+		result.type = INT;
+		result.value = malloc(sizeof(int));
+		*(int *)result.value = *(char *)left.value - *(int *)right.value;
+	}
+	else if (left.type == CHAR && right.type == CHAR && kind == '-')
+	{
+		result.type = CHAR;
+		result.value = malloc(sizeof(char));
+		*(char *)result.value = *(char *)left.value - *(char *)right.value;
+	}
+	else if (left.type == INT && right.type == INT && kind == '*')
+	{
+		result.type = INT;
+		result.value = malloc(sizeof(int));
+		*(int *)result.value = *(int *)left.value * *(int *)right.value;
+	}
+	else if (left.type == INT && right.type == CHAR && kind == '*')
+	{
+		result.type = INT;
+		result.value = malloc(sizeof(int));
+		*(int *)result.value = *(int *)left.value * *(char *)right.value;
+	}
+	else if (left.type == CHAR && right.type == INT && kind == '*')
+	{
+		result.type = INT;
+		result.value = malloc(sizeof(int));
+		*(int *)result.value = *(char *)left.value * *(int *)right.value;
+	}
+	else if (left.type == CHAR && right.type == CHAR && kind == '*')
+	{
+		result.type = CHAR;
+		result.value = malloc(sizeof(int));
+		*(char *)result.value = *(char *)left.value * *(char *)right.value;
+	}
+	else if (left.type == INT && right.type == INT && kind == '/')
+	{
+		result.type = INT;
+		result.value = malloc(sizeof(int));
+		*(int *)result.value = *(int *)left.value / *(int *)right.value;
+	}
+	else if (left.type == INT && right.type == CHAR && kind == '/')
+	{
+		result.type = INT;
+		result.value = malloc(sizeof(int));
+		*(int *)result.value = *(int *)left.value / *(char *)right.value;
+	}
+	else if (left.type == CHAR && right.type == INT && kind == '/')
+	{
+		result.type = INT;
+		result.value = malloc(sizeof(int));
+		*(int *)result.value = *(char *)left.value / *(int *)right.value;
+	}
+	else if (left.type == CHAR && right.type == CHAR && kind == '/')
+	{
+		result.type = CHAR;
+		result.value = malloc(sizeof(int));
+		*(char *)result.value = *(char *)left.value / *(char *)right.value;
+	}
+	free_split(split_exp);
+	return result;
+}
+
+Var run_expression(char *expression)
+{
+	if (is_function(expression))
+	{
+		push_function(expression);
+		return run_function();
+	}
+	int i = 0;
+	//加法
+	for (i = 0; expression[i] != '+' && expression[i] != '\0'; i++)
+		;
+	if (expression[i] == '+')
+		return calculate(expression, '+');
+	//减法
+	for (i = 0; expression[i] != '-' && expression[i] != '\0'; i++)
+		;
+	if (expression[i] == '-')
+		return calculate(expression, '-');
+	//乘法
+	for (i = 0; expression[i] != '*' && expression[i] != '\0'; i++)
+		;
+	if (expression[i] == '*')
+		return calculate(expression, '*');
+	//除法
+	for (i = 0; expression[i] != '/' && expression[i] != '\0'; i++)
+		;
+	if (expression[i] == '/')
+		return calculate(expression, '/');
+	//其它情况
+	return get_var(expression);
+}
+
+//处理++语句和--语句
+void convert_inc_dec(char *part)
 {
 	int i = 0;
+	//++
+	for (; part[i] != '\0' && part[i] != '+'; i++)
+		;
+	if (part[i+1] == '+')
+	{
+		char var[MAX_LINE_NUMBER] = {};
+		strcat_n(var, part, i);
+		part[i] = '=';
+		part[i+1] = '\0';
+		strcat_n(part, var, strlen(var));
+		strcat_n(part, "+1", 2); 
+		return;
+	}
+	//--
+	for (i = 0; part[i] != '\0' && part[i] != '-'; i++)
+		;
+	if (part[i+1] == '-')
+	{
+		char var[MAX_LINE_NUMBER] = {};
+		strcat_n(var, part, i);
+		part[i] = '=';
+		part[i+1] = '\0';
+		strcat_n(part, var, strlen(var));
+		strcat_n(part, "-1", 2); 
+		return;
+	}
+}
+
+//获取变量
+Var get_var(char *part)
+{
+	Var result;
+	//返回空
+	if (part[0] == '\0')
+		return result;
+	//返回数字
+	if (atoi(part) != 0 || part[0] == '0')
+	{
+		result.type = INT;
+		result.value = malloc(sizeof(int));
+		*(int *)(result.value) = atoi(part);
+		return result;
+	}
+	//返回字符
+	if (part[0] == '\'')
+	{
+		result.type = CHAR;
+		result.value = malloc(sizeof(char));
+		*(char *)(result.value) = get_char_value(part);
+		return result;
+	}
+	//返回字符串
+	if (part[0] == '\"')
+	{
+		result.type = STRING;
+		result.value = malloc(sizeof(char) * MAX_LINE_LENGTH);
+		memset(result.value, 0, sizeof(char) * MAX_LINE_LENGTH);
+		get_string_value(part, (char *)result.value);
+		return result;
+	}
+	//返回变量
+	int i = 0;
 	int exists = 0;
+	Var local;
+	memset(&local, 0, sizeof(Var));
 	//局部变量中是否存在
 	for (; stack_frame[stack_frame_number - 1].vars[i].type != VOID; i++)
 	{
-		Var local = stack_frame[stack_frame_number].vars[i];
-		if (local.type == STRING && strcmp(local.name, var_name) == 0)
+		Var current = stack_frame[stack_frame_number - 1].vars[i];
+		if (strcmp(current.name, part) == 0)
 		{
-			strcpy(result, (char *)local.value);
 			exists = 1;
+			local = current;
 			break;
 		}
 	}
@@ -858,9 +1210,9 @@ void get_string_from_var(char *var_name, char *result)
 	{
 		for (i = 0; i < global_vars_number; i++)
 		{
-			if (global_vars[i].type == STRING && strcmp(global_vars[i].name, var_name) == 0)
+			if (strcmp(global_vars[i].name, part) == 0)
 			{
-				strcpy(result, (char *)global_vars[i].value);
+				local = global_vars[i];
 				exists = 1;
 				break;
 			}
@@ -872,7 +1224,125 @@ void get_string_from_var(char *var_name, char *result)
 		//printf(1, "can't find variable %s", com);
 		//exit();
 	}
-	return;
+	if (local.type == INT)
+	{
+		result.type = INT;
+		result.value = malloc(sizeof(int));
+		*(int *)result.value = *(int *)local.value;
+	}
+	if (local.type == CHAR)
+	{
+		result.type = CHAR;
+		result.value = malloc(sizeof(char));
+		*(char *)result.value = *(char *)local.value;
+	}
+	if (local.type == STRING)
+	{
+		result.type = STRING;
+		result.value = malloc(sizeof(char) * MAX_LINE_LENGTH);
+		memset(result.value, 0, sizeof(char) * MAX_LINE_LENGTH);
+		strcpy((char *)result.value, (char *)local.value);
+	}
+	return result;
+}
+
+void set_var(char *var_name, Var *var)
+{
+	int i = 0;
+	int exists = 0;
+	Var *local = NULL;
+	//局部变量中是否存在
+	for (; stack_frame[stack_frame_number - 1].vars[i].type != VOID; i++)
+	{
+		Var *current = &(stack_frame[stack_frame_number - 1].vars[i]);
+		if (strcmp(current->name, var_name) == 0)
+		{
+			exists = 1;
+			local = current;
+			break;
+		}
+	}
+	//全局变量中是否存在
+	if (exists == 0)
+	{
+		for (i = 0; i < global_vars_number; i++)
+		{
+			if (strcmp(global_vars[i].name, var_name) == 0)
+			{
+				local = &(global_vars[i]);
+				exists = 1;
+				break;
+			}
+		}
+	}
+	//不存在该变量
+	if (exists == 0)
+	{
+		//printf(1, "can't find variable %s", com);
+		//exit();
+	}
+	//不同的赋值情况
+	if (local->type == INT && var->type == INT)
+		*(int *)(local->value) = *(int *)(var->value);
+	else if (local->type == INT && var->type == CHAR)
+		*(int *)(local->value) = *(char *)(var->value);
+	else if (local->type == CHAR && var->type == INT)
+		*(char *)(local->value) = *(char *)(var->value);
+	else if (local->type == CHAR && var->type == CHAR)
+		*(char *)(local->value) = *(char *)(var->value);
+	else if (local->type == STRING && var->type == INT)
+	{
+		memset(local->value, 0, sizeof(char) * MAX_LINE_LENGTH);
+		itoa((char *)local->value, *(int *)var->value);
+	}
+	else if (local->type == STRING && var->type == CHAR)
+	{
+		memset(local->value, 0, sizeof(char) * MAX_LINE_LENGTH);
+		*(char *)local->value = *(char *)var->value;
+	}
+	else if (local->type == STRING && var->type == STRING)
+	{
+		memset(local->value, 0, sizeof(char) * MAX_LINE_LENGTH);
+		strcpy((char *)local->value, (char *)var->value);
+	}
+	else
+	{
+		//printf(1, "parameter type error\n");
+		//exit();
+	}
+}
+
+//整数到字符串
+void itoa(char *s, int n)
+{
+	int i = 0;
+	int len = 0;
+	while(n % 10 != 0)
+	{
+		s[len] = n % 10 + '0';
+		n = n / 10; 
+		len++;
+	}
+	for(i = 0; i < len/2; i++)
+	{
+		char tmp = s[i];
+		s[i] = s[len - 1 - i];
+		s[len - 1 - i] = tmp;
+	}
+	s[len] = '\0';
+}
+
+//运行一条命令
+void run_command(char* cmd)
+{
+	printf(1, "%s\n", cmd);
+	char *res[MAX_VARS_NUMBER] = {};
+	split(cmd, ' ', res);
+	if (fork() == 0)
+	{
+		exec(res[0], res);
+	}
+	wait();
 }
 
 void process_text()
@@ -883,8 +1353,9 @@ void process_text()
 	{
 		remove_spaces(text[i]);
 		remove_semicolon(text[i]);
+		if (text[i][0] == '/' && text[i][1] == '/')
+			memset(text[i], 0, MAX_LINE_LENGTH);
 	}
-	
 	//找到所有的函数
 	find_functions();
 	//找到所有的全局变量

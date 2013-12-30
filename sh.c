@@ -1,4 +1,4 @@
-// Shell.
+// Shell命令
 
 #include "types.h"
 #include "user.h"
@@ -757,23 +757,23 @@ stringdistance(char* s1, char* s2)
   int len2 = (int)strlen(s2);
 
   int **dp;
-  dp = malloc(sizeof(int*)*len1);
+  dp = malloc(sizeof(int*)*(len1 + 1));
   int i = 0;
-  for (i = 0;i < len1;i ++){
-    dp[i] = malloc(sizeof(int)*len2);
+  for (i = 0;i <= len1;i ++){
+    dp[i] = malloc(sizeof(int)*(len2 + 1));
   }
-  for (i = 0;i < len1;i ++){
+  for (i = 0;i <= len1;i ++){
     dp[i][0] = i;
   }
-  for (i = 0;i < len2;i ++){
+  for (i = 0;i <= len2;i ++){
     dp[0][i] = i;
   }
 
   dp[0][0] = 0;
 
   int j = 0;
-  for (i = 1;i < len1;i ++){
-    for (j = 1;j < len2;j ++){
+  for (i = 1;i <= len1;i ++){
+    for (j = 1;j <= len2;j ++){
       if (s1[i - 1] == s2[j - 1])
         dp[i][j] = dp[i - 1][j - 1];
       else
@@ -781,7 +781,7 @@ stringdistance(char* s1, char* s2)
     }
   }
 
-  int ans = dp[len1 - 1][len2 - 1];
+  int ans = dp[len1][len2];
   free(dp);
   return ans;
 }
@@ -816,10 +816,14 @@ fixcmd(char *errorcmd)
       }
   }
 
-  printf(1, "%s\n", "Your cmd is illegal!");
-  printf(1, "%s\n", "Maybe you want to input these commands...");
-  for (i = 0;i < 4;i ++){
+  int tempflag = 0;
+  for (i = 0;i < cmdlistlen;i ++){
+    if ((cmdlistdis[i] >= strlen(errorcmd)) || (cmdlistdis[i] >= strlen(cmdlist[cmdlistflag[i]]) + 1))
+      break;
+    tempflag = 1;
     printf(1, "%s\n", cmdlist[cmdlistflag[i]]);
   }
+  if (tempflag == 1)
+    printf(1, "%s\n", "Maybe you want to input these commands.");
 
 }
