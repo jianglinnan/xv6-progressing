@@ -527,7 +527,7 @@ nulterminate(struct cmd *cmd)
 void itoa(char* s,int n){
   int i = 0;
   int len = 0;
-  while(n % 10 != 0){
+  while(n != 0){
     s[len] = n % 10 + '0';
     n = n / 10; 
     len++;
