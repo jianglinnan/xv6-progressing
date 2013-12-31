@@ -5,8 +5,8 @@
 #include "fs.h"
 
 #define BUF_SIZE 48
-#define MAX_LINE_NUMBER 48
-#define MAX_LINE_LENGTH 24
+#define MAX_LINE_NUMBER 40
+#define MAX_LINE_LENGTH 32
 #define MAX_VARS_NUMBER 8
 #define MAX_FUNCTION_NUMBER 4
 #define MAX_NAME_LINGTH 24
