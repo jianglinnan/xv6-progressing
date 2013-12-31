@@ -4,13 +4,13 @@
 #include "fcntl.h"
 #include "fs.h"
 
-#define BUF_SIZE 256
-#define MAX_LINE_NUMBER 256
-#define MAX_LINE_LENGTH 256
-#define MAX_VARS_NUMBER 16
-#define MAX_FUNCTION_NUMBER 16
-#define MAX_NAME_LINGTH 16
-#define MAX_STACK_LENGTH 16
+#define BUF_SIZE 48
+#define MAX_LINE_NUMBER 48
+#define MAX_LINE_LENGTH 24
+#define MAX_VARS_NUMBER 8
+#define MAX_FUNCTION_NUMBER 4
+#define MAX_NAME_LINGTH 24
+#define MAX_STACK_LENGTH 8
 #define NULL 0
 
 //支持的变量类型
@@ -24,7 +24,6 @@ typedef struct
 {
 	int type;
 	char name[MAX_NAME_LINGTH];
-	//char scope[MAX_NAME_LINGTH];
 	void *value;
 }Var;
 
@@ -33,17 +32,28 @@ typedef struct
 {
 	int start;
 	int end;
-	int condition;
+	char condition[MAX_NAME_LINGTH * 2];
 }IfBlock;
 
+//If-Else语句块
 typedef struct
 {
 	int if_start;
 	int if_end;
 	int else_start;
 	int else_end;
-	int condition;
+	char condition[MAX_NAME_LINGTH * 2];
 }IfElseBlock;
+
+//For语句块
+typedef struct
+{
+	int start;
+	int end;
+	char init[MAX_NAME_LINGTH * 2];
+	char condition[MAX_NAME_LINGTH * 2];
+	char back[MAX_NAME_LINGTH * 2];
+}ForBlock;
 
 //函数类型
 typedef struct
@@ -113,13 +123,21 @@ Var calculate(char *expression, char kind);
 void itoa(char *s, int n);
 void run_command(char* cmd);
 void process_text();
+IfBlock *get_if_block(int line_number);
+IfElseBlock *get_if_else_block(int line_number);
+ForBlock *get_for_block(int line_number);
+int run_if_block(IfBlock *i_block, int *return_flag, Var *return_var);
+int run_if_else_block(IfElseBlock *ie_block, int *return_flag, Var *return_var);
+int run_for_block(ForBlock *f_block, int *return_flag, Var *return_var);
+int get_condition_result(char *part);
+int calculate_condition(Var *left, Var *right, char *operator);
 
 int main(int argc, char *argv[])
 {
 	//判断参数个数
 	if (argc < 2)
 	{
-		//printf(1, "please input the command as [script file]\n");
+		printf(1, "please input the command as [script file]\n");
 		exit();
 	}
 	//读取文件
@@ -258,6 +276,9 @@ char* remove_spaces(char *line)
 //可以认为分号之后的内容为注释
 char* remove_semicolon(char *line)
 {
+	if (strcmp_n(line, "for", 3) == 0)
+		return line;
+	
 	//标记是否处于引号中
 	int single_quotes = 0;
 	int double_quotes = 0;
@@ -283,7 +304,7 @@ void read_script(char *path)
 	int fd = open(path, O_RDONLY);
 	if (fd == -1)
 	{
-		//printf(1, "can't open the file\n");
+		printf(1, "can't open the file\n");
 		exit();
 	}
 	//读取内容
@@ -353,8 +374,12 @@ int is_variable(char *part)
 	if (part[0] == '\0')
 		return 0;
 	for (; part[i] != '\0'; i++)
+	{
+		if (part[i] == '=')
+			break;
 		if (part[i] == '(' || part[i] == ')')
 			return 0;
+	}
 	return 1;
 }
 
@@ -446,7 +471,8 @@ int find_vars_in_line(char *line, Var *vars, char *scope)
 				vars[count].type = INT;
 				strcpy(vars[count].name, split_expression[0]);
 				vars[count].value = malloc(sizeof(int));
-				*(int *)(vars[count].value) = atoi(split_expression[1]);
+				Var result = run_expression(split_expression[1]);
+				set_var(vars[count].name, &result);
 				count++;
 			}
 			free_split(split_expression);
@@ -476,7 +502,8 @@ int find_vars_in_line(char *line, Var *vars, char *scope)
 				vars[count].type = CHAR;
 				strcpy(vars[count].name, split_expression[0]);
 				vars[count].value = malloc(sizeof(char));
-				*(char *)(vars[count].value) = get_char_value(split_expression[1]);
+				Var result = run_expression(split_expression[1]);
+				set_var(vars[count].name, &result);
 				count++;
 			}
 			free_split(split_expression);
@@ -507,7 +534,8 @@ int find_vars_in_line(char *line, Var *vars, char *scope)
 				strcpy(vars[count].name, split_expression[0]);
 				vars[count].value = malloc(MAX_LINE_LENGTH);
 				memset(vars[count].value, 0, MAX_LINE_LENGTH);
-				get_string_value(split_expression[1], vars[count].value);
+				Var result = run_expression(split_expression[1]);
+				set_var(vars[count].name, &result);
 				count++;
 			}
 			free_split(split_expression);
@@ -696,8 +724,8 @@ int push_function(char *fun_str)
 	int pos1 = i;
 	if (pos1 < 1)
 	{
-		//printf(1, "error, it's not function\n");
-		//exit();
+		printf(1, "error, it's not function\n");
+		exit();
 	}
 	for(; fun_str[i] != ')' && i < MAX_LINE_LENGTH; i++)
 		;
@@ -710,8 +738,8 @@ int push_function(char *fun_str)
 			break;
 	if (i == fun_list_number)
 	{
-		//printf(1, "error, can't find function %s\n", fun_name);
-		//exit();
+		printf(1, "error, can't find function %s\n", fun_name);
+		exit();
 	}
 	stack_frame[stack_frame_number].function = fun_list[i];
 	stack_frame[stack_frame_number].current = fun_list[i].start + 2;
@@ -728,8 +756,8 @@ int push_function(char *fun_str)
 		{
 			if (stack_frame[stack_frame_number].function.param_type[i] != INT)
 			{
-				//printf(1, "parameter type error\n");
-				//exit();
+				printf(1, "parameter type error\n");
+				exit();
 			}
 			stack_frame[stack_frame_number].vars[i].type = INT;
 			strcpy(stack_frame[stack_frame_number].vars[i].name, stack_frame[stack_frame_number].function.param_name[i]);
@@ -741,8 +769,8 @@ int push_function(char *fun_str)
 		{
 			if (stack_frame[stack_frame_number].function.param_type[i] != CHAR)
 			{
-				//printf(1, "parameter type error\n");
-				//exit();
+				printf(1, "parameter type error\n");
+				exit();
 			}
 			stack_frame[stack_frame_number].vars[i].type = CHAR;
 			strcpy(stack_frame[stack_frame_number].vars[i].name, stack_frame[stack_frame_number].function.param_name[i]);
@@ -754,8 +782,8 @@ int push_function(char *fun_str)
 		{
 			if (stack_frame[stack_frame_number].function.param_type[i] != STRING)
 			{
-				//printf(1, "parameter type error\n");
-				//exit();
+				printf(1, "parameter type error\n");
+				exit();
 			}
 			stack_frame[stack_frame_number].vars[i].type = STRING;
 			strcpy(stack_frame[stack_frame_number].vars[i].name, stack_frame[stack_frame_number].function.param_name[i]);
@@ -766,18 +794,18 @@ int push_function(char *fun_str)
 		//变量
 		else
 		{
-			Var tmp_var = get_var(split_param[i]);
+			Var tmp_var = run_expression(split_param[i]);
 			//判断文件是否存在
 			if (tmp_var.type == 0)
 			{
-				//printf(1, "can't find variable %s", split_param[i]);
-				//exit();
+				printf(1, "can't find variable %s", split_param[i]);
+				exit();
 			}
 			//判断类型是否匹配
 			if (stack_frame[stack_frame_number].function.param_type[i] != tmp_var.type)
 			{
-				//printf(1, "parameter type error\n");
-				//exit();
+				printf(1, "parameter type error\n");
+				exit();
 			}
 			//赋值
 			stack_frame[stack_frame_number].vars[i].type = tmp_var.type;
@@ -828,8 +856,8 @@ Var run_function()
 		{
 			if (return_var.type != stack_frame[stack_frame_number - 1].function.return_type)
 			{
-				//printf(1, "return type error\n");
-				//exit();
+				printf(1, "return type error\n");
+				exit();
 			}
 			//清除变量
 			int j = 0;
@@ -840,25 +868,11 @@ Var run_function()
 			return return_var;
 		}
 	}
-	/*
-	for (i = 0; stack_frame[stack_frame_number - 1].vars[i].type != VOID; i++)
-	{
-		Var tmp = stack_frame[stack_frame_number - 1].vars[i];
-		printf("name=%s,", tmp.name);
-		if (tmp.type == INT)
-			printf("value=%d\n", *(int *)tmp.value);
-		if (tmp.type == CHAR)
-			printf("value=%c\n", *(char *)tmp.value);
-		if (tmp.type == STRING)
-			printf("value=%s\n", (char *)tmp.value);
-	}
-	printf("**********\n");
-	*/
 	//清除变量
 	if (return_var.type != stack_frame[stack_frame_number - 1].function.return_type)
 	{
-		//printf(1, "return type error\n");
-		//exit();
+		printf(1, "return type error\n");
+		exit();
 	}
 	for (i = 0; stack_frame[stack_frame_number - 1].vars[i].value != NULL; i++)
 		free(stack_frame[stack_frame_number - 1].vars[i].value);
@@ -876,7 +890,7 @@ int run_line(int line_number, int *return_flag, Var *return_var)
 	if (strcmp_n(text[line_number], "return", 6) == 0)
 	{
 		*return_flag = 1;
-		*(return_var) = get_var(text[line_number] + 7);
+		*(return_var) = run_expression(text[line_number] + 7);
 		return 1;
 	}
 	//系统命令
@@ -885,19 +899,15 @@ int run_line(int line_number, int *return_flag, Var *return_var)
 		char com[MAX_LINE_LENGTH] = {};
 		char param[MAX_LINE_LENGTH] = {};
 		strcat_n(com, text[line_number] + 7, strlen(text[line_number])-8);
-		//双引号命令
-		if (com[0] == '\"')
-			get_string_value(com, param);
-		else
+		
+		Var tmp = run_expression(com);
+		if (tmp.type != STRING)
 		{
-			Var tmp = get_var(com);
-			if (tmp.type != STRING)
-			{
-				//printf(1, "parameter type error\n");
-				//exit();
-			}
-			strcpy(param, (char *)tmp.value);
+			printf(1, "parameter type error\n");
+			exit();
 		}
+		
+		strcpy(param, (char *)tmp.value);
 		run_command(param);
 		return 1;
 	}
@@ -905,13 +915,53 @@ int run_line(int line_number, int *return_flag, Var *return_var)
 	int local_vars_number = 0;
 	for (; stack_frame[stack_frame_number - 1].vars[local_vars_number].type != VOID; local_vars_number++)
 		;
-	int number = find_vars_in_line(text[line_number], stack_frame[stack_frame_number - 1].vars + local_vars_number, stack_frame[stack_frame_number].function.name);
+	int number = find_vars_in_line(text[line_number], stack_frame[stack_frame_number - 1].vars + local_vars_number, stack_frame[stack_frame_number - 1].function.name);
 	local_vars_number += number;
 	remove_duplicate_variables(stack_frame[stack_frame_number - 1].vars);
 	if (number > 0)
 		return 1;
 	//if逻辑块和if-else逻辑块
+	if (strcmp_n(text[line_number], "if", 2) == 0)
+	{
+		IfElseBlock *ie_block = get_if_else_block(line_number);
+		if (ie_block != NULL)
+		{
+			int n = run_if_else_block(ie_block, return_flag, return_var);
+			free(ie_block);
+			return n;
+		}
+		else
+		{
+			IfBlock *i_block = get_if_block(line_number);
+			if (i_block != NULL)
+			{
+				int n = run_if_block(i_block, return_flag, return_var);
+				free(i_block);
+				return n;
+			}
+			else
+			{
+				printf(1, "unknown line: %s\n", text[line_number]);
+				exit();
+			}
+		}
+	}
 	//for逻辑块
+	if (strcmp_n(text[line_number], "for", 3) == 0)
+	{
+		ForBlock *f_block = get_for_block(line_number);
+		if (f_block != NULL)
+		{
+			int n = run_for_block(f_block, return_flag, return_var);
+			free(f_block);
+			return n;
+		}
+		else
+		{
+			printf(1, "unknown line: %s\n", text[line_number]);
+			exit();
+		}
+	}
 	//++语句和--语句
 	convert_inc_dec(text[line_number]);
 	//赋值语句
@@ -928,8 +978,8 @@ int run_line(int line_number, int *return_flag, Var *return_var)
 		}
 		else
 		{
-			//printf(1, "unknown line: %s\n", text[line_number]);
-			//exit();
+			printf(1, "unknown line: %s\n", text[line_number]);
+			exit();
 		}
 	}
 	Var right_val = run_expression(split_equal[1]);
@@ -941,6 +991,7 @@ int run_line(int line_number, int *return_flag, Var *return_var)
 Var calculate(char *expression, char kind)
 {
 	Var result;
+	memset(&result, 0, sizeof(Var));
 	char *split_exp[MAX_VARS_NUMBER] = {};
 	split(expression, kind, split_exp);
 	Var left = get_var(split_exp[0]);
@@ -1105,7 +1156,9 @@ Var run_expression(char *expression)
 	for (i = 0; expression[i] != '+' && expression[i] != '\0'; i++)
 		;
 	if (expression[i] == '+')
+	{
 		return calculate(expression, '+');
+	}
 	//减法
 	for (i = 0; expression[i] != '-' && expression[i] != '\0'; i++)
 		;
@@ -1221,8 +1274,8 @@ Var get_var(char *part)
 	//不存在该变量
 	if (exists == 0)
 	{
-		//printf(1, "can't find variable %s", com);
-		//exit();
+		printf(1, "can't find variable %s", part);
+		exit();
 	}
 	if (local.type == INT)
 	{
@@ -1259,7 +1312,6 @@ void set_var(char *var_name, Var *var)
 		{
 			exists = 1;
 			local = current;
-			break;
 		}
 	}
 	//全局变量中是否存在
@@ -1271,15 +1323,14 @@ void set_var(char *var_name, Var *var)
 			{
 				local = &(global_vars[i]);
 				exists = 1;
-				break;
 			}
 		}
 	}
 	//不存在该变量
 	if (exists == 0)
 	{
-		//printf(1, "can't find variable %s", com);
-		//exit();
+		printf(1, "can't find variable %s", var_name);
+		exit();
 	}
 	//不同的赋值情况
 	if (local->type == INT && var->type == INT)
@@ -1307,8 +1358,8 @@ void set_var(char *var_name, Var *var)
 	}
 	else
 	{
-		//printf(1, "parameter type error\n");
-		//exit();
+		printf(1, "parameter type error\n");
+		exit();
 	}
 }
 
@@ -1317,7 +1368,7 @@ void itoa(char *s, int n)
 {
 	int i = 0;
 	int len = 0;
-	while(n % 10 != 0)
+	while(n != 0)
 	{
 		s[len] = n % 10 + '0';
 		n = n / 10; 
@@ -1329,13 +1380,11 @@ void itoa(char *s, int n)
 		s[i] = s[len - 1 - i];
 		s[len - 1 - i] = tmp;
 	}
-	s[len] = '\0';
 }
 
 //运行一条命令
 void run_command(char* cmd)
 {
-	printf(1, "%s\n", cmd);
 	char *res[MAX_VARS_NUMBER] = {};
 	split(cmd, ' ', res);
 	if (fork() == 0)
@@ -1362,4 +1411,313 @@ void process_text()
 	find_global_vars();
 	//执行
 	execute_text();
+}
+
+IfBlock *get_if_block(int line_number)
+{
+	int count = 0;
+	int i = line_number + 1;
+	do
+	{
+		if (text[i][0] == '{')
+			count++;
+		if (text[i][0] == '}')
+			count--;
+		if (count > 0)
+			i++;
+	}
+	while(count > 0 && i < MAX_LINE_NUMBER);
+	
+	if (i == MAX_LINE_NUMBER)
+		return NULL;
+	IfBlock *i_block = (IfBlock *)malloc(sizeof(IfBlock));
+	memset(i_block, 0, sizeof(IfBlock));
+	i_block->start = line_number + 2;
+	i_block->end = i - 1;
+	
+	int pos1 = 0;
+	for (i = 0; i < MAX_LINE_LENGTH && text[line_number][i] != '('; i++)
+		;
+	if (i < MAX_LINE_LENGTH)
+		pos1 = i;
+	for (; i < MAX_LINE_LENGTH && text[line_number][i] != ')'; i++)
+		;
+	int pos2 = 0;
+	if (i < MAX_LINE_LENGTH)
+		pos2 = i;
+	strcat_n(i_block->condition, text[line_number]+pos1+1, pos2-pos1-1);
+	return i_block;
+}
+
+IfElseBlock *get_if_else_block(int line_number)
+{
+	//找到if区域
+	int count = 0;
+	int i = line_number + 1;
+	do
+	{
+		if (text[i][0] == '{')
+			count++;
+		if (text[i][0] == '}')
+			count--;
+		if (count > 0)
+			i++;
+	}
+	while(count > 0 && i < MAX_LINE_NUMBER);
+	if (i >= MAX_LINE_NUMBER - 3 || strcmp(text[i+1], "else") != 0)
+		return NULL;
+	IfElseBlock *ie_block = (IfElseBlock *)malloc(sizeof(IfElseBlock));
+	memset(ie_block, 0, sizeof(IfElseBlock));
+	ie_block->if_start = line_number + 2;
+	ie_block->if_end = i - 1;
+	
+	count = 0;
+	i = i + 2;
+	do
+	{
+		if (text[i][0] == '{')
+			count++;
+		if (text[i][0] == '}')
+			count--;
+		if (count > 0)
+			i++;
+	}
+	while(count > 0 && i < MAX_LINE_NUMBER);
+	if (i >= MAX_LINE_NUMBER)
+	{
+		free(ie_block);
+		return NULL;
+	}
+	
+	ie_block->else_start = ie_block->if_end + 4;
+	ie_block->else_end = i - 1;
+	
+	//找到条件
+	int pos1 = 0;
+	for (i = 0; i < MAX_LINE_LENGTH && text[line_number][i] != '('; i++)
+		;
+	if (i < MAX_LINE_LENGTH)
+		pos1 = i;
+	for (; i < MAX_LINE_LENGTH && text[line_number][i] != ')'; i++)
+		;
+	int pos2 = 0;
+	if (i < MAX_LINE_LENGTH)
+		pos2 = i;
+	strcat_n(ie_block->condition, text[line_number]+pos1+1, pos2-pos1-1);
+	
+	return ie_block;
+}
+
+ForBlock *get_for_block(int line_number)
+{
+	//定位
+	int pos1 = 0;
+	for (; pos1 < MAX_LINE_LENGTH && text[line_number][pos1] != '('; pos1++)
+		;
+	int pos2 = pos1 + 1;
+	for (; pos2 < MAX_LINE_LENGTH && text[line_number][pos2] != ';'; pos2++)
+		;
+	int pos3 = pos2 + 1;
+	for (; pos3 < MAX_LINE_LENGTH && text[line_number][pos3] != ';'; pos3++)
+		;
+	int pos4 = pos3 + 1;
+	for (; pos4 < MAX_LINE_LENGTH && text[line_number][pos4] != ')'; pos4++)
+		;
+	if (pos1 >= MAX_LINE_LENGTH || pos2 >= MAX_LINE_LENGTH || pos3 >= MAX_LINE_LENGTH || pos4 >= MAX_LINE_LENGTH)
+		return NULL;
+	ForBlock *f_block = (ForBlock *)malloc(sizeof(ForBlock));
+	memset(f_block, 0, sizeof(ForBlock));
+	strcat_n(f_block->init, text[line_number]+pos1+1, pos2-pos1-1);
+	strcat_n(f_block->condition, text[line_number]+pos2+1, pos3-pos2-1);
+	strcat_n(f_block->back, text[line_number]+pos3+1, pos4-pos3-1);
+	convert_inc_dec(f_block->init);
+	convert_inc_dec(f_block->back);
+	//找到区域
+	int count = 0;
+	int i = line_number + 1;
+	do
+	{
+		if (text[i][0] == '{')
+			count++;
+		if (text[i][0] == '}')
+			count--;
+		if (count > 0)
+			i++;
+	}
+	while(count > 0 && i < MAX_LINE_NUMBER);
+	if (i == MAX_LINE_NUMBER)
+	{
+		free(f_block);
+		return NULL;
+	}
+	f_block->start = line_number + 2;
+	f_block->end = i - 1;
+	return f_block;
+}
+
+int run_if_block(IfBlock *i_block, int *return_flag, Var *return_var)
+{
+	if (get_condition_result(i_block->condition))
+	{
+		int i = i_block->start;
+		for (; i <= i_block->end; i++)
+		{
+			int n = run_line(i, return_flag, return_var);
+			i += (n-1);
+			if (*return_flag == 1)
+				break;
+		}
+	}
+	return i_block->end - i_block->start + 4;
+}
+
+int run_if_else_block(IfElseBlock *ie_block, int *return_flag, Var *return_var)
+{
+	int result = get_condition_result(ie_block->condition);
+	if (result)
+	{
+		int i = ie_block->if_start;
+		for (; i <= ie_block->if_end; i++)
+		{
+			int n = run_line(i, return_flag, return_var);
+			i += (n-1);
+			if (*return_flag == 1)
+				break;
+		}
+	}
+	else
+	{
+		int i = ie_block->else_start;
+		for (; i <= ie_block->else_end; i++)
+		{
+			int n = run_line(i, return_flag, return_var);
+			i += (n-1);
+			if (*return_flag == 1)
+				break;
+		}
+	}
+	return ie_block->else_end - ie_block->if_start + 4;
+}
+
+int run_for_block(ForBlock *f_block, int *return_flag, Var *return_var)
+{
+	//执行初始条件
+	char *split_equal[MAX_VARS_NUMBER] = {};
+	int number = split(f_block->init, '=', split_equal);
+	if (number == 2)
+	{
+		Var right_val = run_expression(split_equal[1]);
+		set_var(split_equal[0], &right_val);
+	}
+	free_split(split_equal);
+	
+	//循环
+	while(get_condition_result(f_block->condition))
+	{
+		int i = f_block->start;
+		for (; i <= f_block->end; i++)
+		{
+			int n = run_line(i, return_flag, return_var);
+			i += (n-1);
+			if (*return_flag == 1)
+				break;
+		}
+		if (*return_flag == 1)
+			break;
+		//执行后语句
+		memset(split_equal, 0, MAX_VARS_NUMBER * sizeof(char *));
+		number = split(f_block->back, '=', split_equal);
+		if (number == 2)
+		{
+			Var right_val = run_expression(split_equal[1]);
+			set_var(split_equal[0], &right_val);
+		}
+		free_split(split_equal);
+	}
+	return f_block->end - f_block->start + 4;
+}
+
+int get_condition_result(char *part)
+{
+	int i = 0;
+	int len = strlen(part);
+	char operator[3] = {};
+	for (i = 0; i < len && part[i] != '>' && part[i] != '<' && part[i] != '=' && part[i] != '!'; i++)
+		;
+	if (i < len)
+	{
+		operator[0] = part[i];
+		if (part[i+1] == '=')
+			operator[1] = part[i+1];
+		char str_left[MAX_NAME_LINGTH] = {};
+		strcat_n(str_left, part, i);
+		char str_right[MAX_NAME_LINGTH] = {};
+		strcpy(str_right, part + i + (part[i+1] == '=' ? 2 : 1));
+		Var left = get_var(str_left);
+		Var right = get_var(str_right);
+		return calculate_condition(&left, &right, operator);
+	}
+	else
+	{
+		Var var = get_var(part);
+		if (var.type == INT)
+			return *(int *)(var.value);
+		if (var.type == CHAR)
+			return *(char *)(var.value);
+		if (var.type == STRING)
+		{
+			char c = *(char *)(var.value);
+			return (c == '\0' ? 0 : 1);
+		}
+	}
+	return 0;
+}
+int calculate_condition(Var *left, Var *right, char *operator)
+{
+	if ((left->type == INT || left->type == CHAR) && (right->type == INT || right->type == CHAR))
+	{
+		int number1 = 0;
+		int number2 = 0;
+		if (left->type == INT)
+			number1 = *(int *)(left->value);
+		else
+			number1 = *(char *)(left->value);
+		if (right->type == CHAR)
+			number2 = *(int *)(right->value);
+		else
+			number2 = *(char *)(right->value);
+		if (strcmp(operator, ">") == 0)
+			return (number1 > number2);
+		if (strcmp(operator, "<") == 0)
+			return (number1 < number2);
+		if (strcmp(operator, ">=") == 0)
+			return (number1 >= number2);
+		if (strcmp(operator, "<=") == 0)
+			return (number1 <= number2);
+		if (strcmp(operator, "==") == 0)
+			return (number1 == number2);
+		if (strcmp(operator, "!=") == 0)
+			return (number1 != number2);
+	}
+	else if(left->type == STRING && right->type == STRING)
+	{
+		if (strcmp(operator, ">") == 0)
+			return strcmp((char *)left->value, (char *)right->value) > 0 ? 1 : 0;
+		if (strcmp(operator, "<") == 0)
+			return strcmp((char *)left->value, (char *)right->value) < 0 ? 1 : 0;
+		if (strcmp(operator, ">=") == 0)
+			return strcmp((char *)left->value, (char *)right->value) >= 0 ? 1 : 0;
+		if (strcmp(operator, "<=") == 0)
+			return strcmp((char *)left->value, (char *)right->value) <= 0 ? 1 : 0;
+		if (strcmp(operator, "==") == 0)
+			return strcmp((char *)left->value, (char *)right->value) == 0 ? 1 : 0;
+		if (strcmp(operator, "!=") == 0)
+			return strcmp((char *)left->value, (char *)right->value) != 0 ? 1 : 0;
+	}
+	else
+	{
+		printf(1, "can't compare variables\n");
+		exit();
+	}
+	return 0;
 }
