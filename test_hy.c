@@ -6,7 +6,7 @@
 int
 main(int argc, char *argv[])
 {
-	int fd = open("fibonacci.c", O_WRONLY|O_CREATE);
+	int fd = open("fib.c", O_WRONLY|O_CREATE);
 	//一个简单的输出语句
 	printf(fd, "int f(int n)\n");
 	printf(fd, "{\n");
