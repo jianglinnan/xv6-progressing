@@ -8,23 +8,18 @@ main(int argc, char *argv[])
 	// fd参见echo.c
 	// usertest.c中的stdout定义为1
 	int fd = open("makefile", O_WRONLY|O_CREATE);
-	printf(fd, "%s\n", "md = mkdir");
-	printf(fd, "%s\n", "t1 = test1.o");
-	printf(fd, "%s\n", "all: test1.o test2.o test3.o");
-	printf(fd, "%s\n", "	$(md) all");
-	printf(fd, "%s\n", "test1.o : test2.o");
-	printf(fd, "%s\n", "	$(md) $(t1)");
-	printf(fd, "%s\n", "t2 = test2.o");
-	printf(fd, "\n");
-	printf(fd, "%s\n", "test2.o : test3.o");
-	printf(fd, "%s\n", "	mkdir $(t2)");
-	printf(fd, "%s\n", "test3.o :");
-	printf(fd, "%s\n", "	$(md) test3.o");
+	printf(fd, "%s\n", "sh = script");
+	printf(fd, "%s\n", "ec = echo");
+	printf(fd, "%s\n", "succ = success");
+	printf(fd, "%s\n", "all: e.c f.c");
+	printf(fd, "%s\n", "	$(ec) $(succ)");
+	printf(fd, "%s\n", "e.c : a.c b.c");
+	printf(fd, "%s\n", "	$(sh) a.c");
+	printf(fd, "%s\n", "f.c : c.c d.c");
+	printf(fd, "%s\n", "	$(sh) c.c");
 	printf(fd, "%s\n", "clean:");
-	printf(fd, "%s\n", "	rm $(t1) $(t2) test3.o all");
-	//printf(fd, "%s\n", "happy = asdfasdflk asdfa efrer");
-	//printf(fd, "%s\n", "sad = lkasdlfajdslfkads d ew q q/q/ d   ");
-	//printf(fd, "%s\n", "time = ak3 1 3 r re w we w    ");
+	printf(fd, "%s\n", "	rm a.c b.c c.c d.c e.c f.c");
 	close(fd);
 	exit();
 }
+
